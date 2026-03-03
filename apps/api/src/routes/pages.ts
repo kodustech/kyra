@@ -1,14 +1,14 @@
-import { createDatabaseSchema, reorderDatabasesSchema, updateDatabaseSchema } from "@kyra/shared";
+import { createPageSchema, reorderPagesSchema, updatePageSchema } from "@kyra/shared";
 import { Hono } from "hono";
 import { supabase } from "../lib/supabase";
 import { parseBody } from "../lib/validate";
 
-export const databases = new Hono();
+export const pages = new Hono();
 
-// GET / — List all databases
-databases.get("/", async (c) => {
+// GET / — List all pages
+pages.get("/", async (c) => {
 	const { data, error } = await supabase
-		.from("databases")
+		.from("pages")
 		.select("*")
 		.order("position", { ascending: true })
 		.order("created_at", { ascending: false });
@@ -17,14 +17,14 @@ databases.get("/", async (c) => {
 	return c.json(data);
 });
 
-// POST / — Create database
-databases.post("/", async (c) => {
-	const parsed = await parseBody(c, createDatabaseSchema);
+// POST / — Create page
+pages.post("/", async (c) => {
+	const parsed = await parseBody(c, createPageSchema);
 	if ("error" in parsed) return parsed.error;
 
 	// Get next position
 	const { data: existing } = await supabase
-		.from("databases")
+		.from("pages")
 		.select("position")
 		.order("position", { ascending: false })
 		.limit(1);
@@ -32,59 +32,69 @@ databases.post("/", async (c) => {
 	const nextPosition = existing && existing.length > 0 ? existing[0].position + 1 : 0;
 
 	const { data, error } = await supabase
-		.from("databases")
+		.from("pages")
 		.insert({ ...parsed.data, position: nextPosition })
 		.select()
 		.single();
 
-	if (error) return c.json({ error: error.message }, 500);
+	if (error) {
+		if (error.code === "23505") {
+			return c.json({ error: "Slug already exists" }, 409);
+		}
+		return c.json({ error: error.message }, 500);
+	}
 	return c.json(data, 201);
 });
 
-// GET /:id — Get database by id
-databases.get("/:id", async (c) => {
+// GET /:id — Get page by id
+pages.get("/:id", async (c) => {
 	const id = c.req.param("id");
-	const { data, error } = await supabase.from("databases").select("*").eq("id", id).single();
+	const { data, error } = await supabase.from("pages").select("*").eq("id", id).single();
 
 	if (error) return c.json({ error: error.message }, 404);
 	return c.json(data);
 });
 
-// PATCH /:id — Update database
-databases.patch("/:id", async (c) => {
+// PATCH /:id — Update page
+pages.patch("/:id", async (c) => {
 	const id = c.req.param("id");
-	const parsed = await parseBody(c, updateDatabaseSchema);
+	const parsed = await parseBody(c, updatePageSchema);
 	if ("error" in parsed) return parsed.error;
 
 	const { data, error } = await supabase
-		.from("databases")
+		.from("pages")
 		.update(parsed.data)
 		.eq("id", id)
 		.select()
 		.single();
 
-	if (error) return c.json({ error: error.message }, 500);
+	if (error) {
+		if (error.code === "23505") {
+			return c.json({ error: "Slug already exists" }, 409);
+		}
+		return c.json({ error: error.message }, 500);
+	}
 	return c.json(data);
 });
 
-// DELETE /:id — Delete database
-databases.delete("/:id", async (c) => {
+// DELETE /:id — Delete page
+pages.delete("/:id", async (c) => {
 	const id = c.req.param("id");
-	const { error } = await supabase.from("databases").delete().eq("id", id);
+	const { error } = await supabase.from("pages").delete().eq("id", id);
 
 	if (error) return c.json({ error: error.message }, 500);
 	return c.json({ ok: true });
 });
 
-// PUT /reorder — Reorder databases
-databases.put("/reorder", async (c) => {
-	const parsed = await parseBody(c, reorderDatabasesSchema);
+// PUT /reorder — Reorder pages
+pages.put("/reorder", async (c) => {
+	const parsed = await parseBody(c, reorderPagesSchema);
 	if ("error" in parsed) return parsed.error;
 
-	const { databaseIds } = parsed.data as { databaseIds: string[] };
+	const { pageIds } = parsed.data as { pageIds: string[] };
 
-	const updates = databaseIds.map((id, index) =>
-		supabase.from("databases").update({ position: index }).eq("id", id),
+	const updates = pageIds.map((id, index) =>
+		supabase.from("pages").update({ position: index }).eq("id", id),
 	);
 
 	const results = await Promise.all(updates);

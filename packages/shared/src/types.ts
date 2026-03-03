@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+// ─── View Types ─────────────────────────────────────────────────────────────────
+
+export const VIEW_TYPES = ["form", "table"] as const;
+
+export type ViewType = (typeof VIEW_TYPES)[number];
+
 // ─── Field Types ────────────────────────────────────────────────────────────────
 
 export const FIELD_TYPES = [
@@ -22,6 +28,7 @@ export interface Database {
 	id: string;
 	name: string;
 	description: string | null;
+	position: number;
 	created_at: string;
 	updated_at: string;
 }
@@ -47,6 +54,37 @@ export interface Record {
 	updated_at: string;
 }
 
+// ─── Pages & Blocks ────────────────────────────────────────────────────────────
+
+export interface Page {
+	id: string;
+	name: string;
+	slug: string;
+	published: boolean;
+	position: number;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface Block {
+	id: string;
+	page_id: string;
+	database_id: string;
+	view_type: ViewType;
+	position: number;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface BlockWithRelations extends Block {
+	database: Database;
+	fields: Field[];
+}
+
+export interface PageWithBlocks extends Page {
+	blocks: (BlockWithRelations & { records: Record[] })[];
+}
+
 // ─── Zod Schemas: Databases ─────────────────────────────────────────────────────
 
 export const createDatabaseSchema = z.object({
@@ -59,8 +97,13 @@ export const updateDatabaseSchema = z.object({
 	description: z.string().max(1000).nullable().optional(),
 });
 
+export const reorderDatabasesSchema = z.object({
+	databaseIds: z.array(z.string().uuid()).min(1),
+});
+
 export type CreateDatabaseInput = z.infer<typeof createDatabaseSchema>;
 export type UpdateDatabaseInput = z.infer<typeof updateDatabaseSchema>;
+export type ReorderDatabasesInput = z.infer<typeof reorderDatabasesSchema>;
 
 // ─── Zod Schemas: Fields ────────────────────────────────────────────────────────
 
@@ -122,6 +165,59 @@ export const updateRecordSchema = z.object({
 
 export type CreateRecordInput = z.infer<typeof createRecordSchema>;
 export type UpdateRecordInput = z.infer<typeof updateRecordSchema>;
+
+// ─── Zod Schemas: Pages ────────────────────────────────────────────────────────
+
+export const viewTypeSchema = z.enum(VIEW_TYPES);
+
+export const createPageSchema = z.object({
+	name: z.string().min(1, "Name is required").max(255),
+	slug: z
+		.string()
+		.min(1, "Slug is required")
+		.max(255)
+		.regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase alphanumeric with hyphens"),
+	published: z.boolean().default(false),
+});
+
+export const updatePageSchema = z.object({
+	name: z.string().min(1).max(255).optional(),
+	slug: z
+		.string()
+		.min(1)
+		.max(255)
+		.regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase alphanumeric with hyphens")
+		.optional(),
+	published: z.boolean().optional(),
+});
+
+export const reorderPagesSchema = z.object({
+	pageIds: z.array(z.string().uuid()).min(1),
+});
+
+export type CreatePageInput = z.infer<typeof createPageSchema>;
+export type UpdatePageInput = z.infer<typeof updatePageSchema>;
+export type ReorderPagesInput = z.infer<typeof reorderPagesSchema>;
+
+// ─── Zod Schemas: Blocks ───────────────────────────────────────────────────────
+
+export const createBlockSchema = z.object({
+	database_id: z.string().uuid("Invalid database ID"),
+	view_type: viewTypeSchema,
+});
+
+export const updateBlockSchema = z.object({
+	database_id: z.string().uuid().optional(),
+	view_type: viewTypeSchema.optional(),
+});
+
+export const reorderBlocksSchema = z.object({
+	blockIds: z.array(z.string().uuid()).min(1),
+});
+
+export type CreateBlockInput = z.infer<typeof createBlockSchema>;
+export type UpdateBlockInput = z.infer<typeof updateBlockSchema>;
+export type ReorderBlocksInput = z.infer<typeof reorderBlocksSchema>;
 
 // ─── Dynamic Record Validator ───────────────────────────────────────────────────
 

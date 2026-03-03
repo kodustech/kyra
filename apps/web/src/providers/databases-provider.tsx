@@ -9,6 +9,7 @@ interface DatabasesContextValue {
 	create: (input: CreateDatabaseInput) => Promise<Database>;
 	update: (id: string, input: UpdateDatabaseInput) => Promise<Database>;
 	remove: (id: string) => Promise<void>;
+	reorder: (databaseIds: string[]) => Promise<void>;
 }
 
 const DatabasesContext = createContext<DatabasesContextValue | undefined>(undefined);
@@ -34,7 +35,7 @@ export function DatabasesProvider({ children }: { children: ReactNode }) {
 
 	const create = async (input: CreateDatabaseInput) => {
 		const db = await api.post<Database>("/databases", input);
-		setDatabases((prev) => [db, ...prev]);
+		setDatabases((prev) => [...prev, db]);
 		return db;
 	};
 
@@ -49,8 +50,23 @@ export function DatabasesProvider({ children }: { children: ReactNode }) {
 		setDatabases((prev) => prev.filter((d) => d.id !== id));
 	};
 
+	const reorder = async (databaseIds: string[]) => {
+		await api.put("/databases/reorder", { databaseIds });
+		setDatabases((prev) => {
+			const map = new Map(prev.map((d) => [d.id, d]));
+			return databaseIds
+				.map((id, i) => {
+					const d = map.get(id);
+					return d ? { ...d, position: i } : undefined;
+				})
+				.filter(Boolean) as Database[];
+		});
+	};
+
 	return (
-		<DatabasesContext.Provider value={{ databases, loading, refetch, create, update, remove }}>
+		<DatabasesContext.Provider
+			value={{ databases, loading, refetch, create, update, remove, reorder }}
+		>
 			{children}
 		</DatabasesContext.Provider>
 	);

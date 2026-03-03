@@ -13,12 +13,13 @@ import { Pencil, Trash2 } from "lucide-react";
 interface DataTableProps {
 	fields: Field[];
 	records: DbRecord[];
+	readOnly?: boolean;
 	onEdit: (record: DbRecord) => void;
 	onDelete: (record: DbRecord) => void;
 }
 
 function formatCellValue(value: unknown, field: Field): string {
-	if (value == null || value === "") return "—";
+	if (value == null || value === "") return "\u2014";
 
 	switch (field.type) {
 		case "boolean":
@@ -34,7 +35,7 @@ function formatCellValue(value: unknown, field: Field): string {
 	}
 }
 
-export function DataTable({ fields, records, onEdit, onDelete }: DataTableProps) {
+export function DataTable({ fields, records, readOnly, onEdit, onDelete }: DataTableProps) {
 	if (records.length === 0) {
 		return null;
 	}
@@ -47,7 +48,7 @@ export function DataTable({ fields, records, onEdit, onDelete }: DataTableProps)
 						{fields.map((field) => (
 							<TableHead key={field.id}>{field.name}</TableHead>
 						))}
-						<TableHead className="w-24" />
+						{!readOnly && <TableHead className="w-24" />}
 					</TableRow>
 				</TableHeader>
 				<TableBody>
@@ -58,26 +59,28 @@ export function DataTable({ fields, records, onEdit, onDelete }: DataTableProps)
 									{formatCellValue(record.data[field.id], field)}
 								</TableCell>
 							))}
-							<TableCell>
-								<div className="flex gap-1">
-									<Button
-										variant="ghost"
-										size="icon"
-										className="h-7 w-7"
-										onClick={() => onEdit(record)}
-									>
-										<Pencil className="h-3.5 w-3.5" />
-									</Button>
-									<Button
-										variant="ghost"
-										size="icon"
-										className="h-7 w-7 text-destructive hover:text-destructive"
-										onClick={() => onDelete(record)}
-									>
-										<Trash2 className="h-3.5 w-3.5" />
-									</Button>
-								</div>
-							</TableCell>
+							{!readOnly && (
+								<TableCell>
+									<div className="flex gap-1">
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-7 w-7"
+											onClick={() => onEdit(record)}
+										>
+											<Pencil className="h-3.5 w-3.5" />
+										</Button>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-7 w-7 text-destructive hover:text-destructive"
+											onClick={() => onDelete(record)}
+										>
+											<Trash2 className="h-3.5 w-3.5" />
+										</Button>
+									</div>
+								</TableCell>
+							)}
 						</TableRow>
 					))}
 				</TableBody>
