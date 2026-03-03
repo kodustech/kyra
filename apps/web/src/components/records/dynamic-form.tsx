@@ -31,6 +31,7 @@ export function DynamicForm({
 		handleSubmit,
 		setValue,
 		watch,
+		reset,
 		formState: { errors, isSubmitting },
 	} = useForm({
 		resolver: zodResolver(schema),
@@ -39,8 +40,13 @@ export function DynamicForm({
 
 	const values = watch();
 
+	async function handleFormSubmit(data: { [fieldId: string]: unknown }) {
+		await onSubmit(data);
+		reset(defaults);
+	}
+
 	return (
-		<form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+		<form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
 			{fields.map((field) => (
 				<div key={field.id} className="space-y-1.5">
 					<Label htmlFor={field.id}>
