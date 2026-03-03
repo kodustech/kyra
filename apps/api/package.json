@@ -1,0 +1,22 @@
+{
+	"name": "@kyra/api",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "bun run --hot src/index.ts",
+		"build": "bun build src/index.ts --outdir dist --target bun",
+		"lint": "biome check .",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@kyra/shared": "workspace:*",
+		"@supabase/supabase-js": "^2.47.12",
+		"hono": "^4.6.15",
+		"zod": "^4.3.6"
+	},
+	"devDependencies": {
+		"@types/bun": "^1.1.14",
+		"typescript": "^5.7.3"
+	}
+}
