@@ -7,9 +7,11 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useDatabases } from "@/hooks/use-databases";
 import type { Database } from "@kyra/shared";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -24,6 +26,13 @@ export function DeleteDatabaseDialog({ database, open, onOpenChange }: DeleteDat
 	const navigate = useNavigate();
 	const location = useLocation();
 	const [loading, setLoading] = useState(false);
+	const [confirmName, setConfirmName] = useState("");
+
+	useEffect(() => {
+		if (!open) setConfirmName("");
+	}, [open]);
+
+	const nameMatches = confirmName === database?.name;
 
 	async function handleDelete() {
 		if (!database) return;
@@ -53,11 +62,23 @@ export function DeleteDatabaseDialog({ database, open, onOpenChange }: DeleteDat
 						all fields and records. This action cannot be undone.
 					</DialogDescription>
 				</DialogHeader>
-				<DialogFooter>
+				<div className="mt-4 space-y-2">
+					<Label htmlFor="confirm-db-name">
+						Type <strong>{database?.name}</strong> to confirm
+					</Label>
+					<Input
+						id="confirm-db-name"
+						value={confirmName}
+						onChange={(e) => setConfirmName(e.target.value)}
+						placeholder={database?.name}
+						autoFocus
+					/>
+				</div>
+				<DialogFooter className="mt-4">
 					<Button variant="outline" onClick={() => onOpenChange(false)}>
 						Cancel
 					</Button>
-					<Button variant="destructive" onClick={handleDelete} disabled={loading}>
+					<Button variant="destructive" onClick={handleDelete} disabled={loading || !nameMatches}>
 						{loading ? "Deleting..." : "Delete"}
 					</Button>
 				</DialogFooter>

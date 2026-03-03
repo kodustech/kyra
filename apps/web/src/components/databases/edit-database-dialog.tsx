@@ -19,9 +19,10 @@ interface EditDatabaseDialogProps {
 	database: Database | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	onSuccess?: (updated: Database) => void;
 }
 
-export function EditDatabaseDialog({ database, open, onOpenChange }: EditDatabaseDialogProps) {
+export function EditDatabaseDialog({ database, open, onOpenChange, onSuccess }: EditDatabaseDialogProps) {
 	const { update } = useDatabases();
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
@@ -40,9 +41,10 @@ export function EditDatabaseDialog({ database, open, onOpenChange }: EditDatabas
 
 		setLoading(true);
 		try {
-			await update(database.id, { name: name.trim(), description: description.trim() || null });
+			const updated = await update(database.id, { name: name.trim(), description: description.trim() || null });
 			toast.success("Database updated");
 			onOpenChange(false);
+			onSuccess?.(updated);
 		} catch (err) {
 			toast.error((err as Error).message);
 		} finally {

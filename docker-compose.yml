@@ -1,0 +1,22 @@
+services:
+  api:
+    build:
+      context: .
+      target: api
+    env_file: .env
+    ports:
+      - "3007:3000"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      target: web
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+    restart: unless-stopped

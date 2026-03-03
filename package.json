@@ -10,7 +10,10 @@
 		"typecheck": "turbo typecheck",
 		"format": "biome format --write .",
 		"check": "biome check --write .",
-		"db:migrate": "bun run --env-file=.env scripts/migrate.ts"
+		"db:migrate": "bun run --env-file=.env scripts/migrate.ts",
+		"docker:build": "docker compose build",
+		"docker:start": "docker compose up",
+		"docker:stop": "docker compose down"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.4",

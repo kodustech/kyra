@@ -1,0 +1,13 @@
+# Dev overrides — hot reload for the web app
+services:
+  web:
+    build:
+      context: .
+      target: base
+    ports:
+      - "5174:5173"
+    volumes:
+      - ./apps/web/src:/app/apps/web/src
+      - ./packages/shared/src:/app/packages/shared/src
+    env_file: .env
+    command: ["bun", "run", "--filter=@kyra/web", "dev", "--host", "0.0.0.0"]

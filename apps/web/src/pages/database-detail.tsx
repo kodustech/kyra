@@ -1,4 +1,7 @@
+import { DeleteDatabaseDialog } from "@/components/databases/delete-database-dialog";
+import { EditDatabaseDialog } from "@/components/databases/edit-database-dialog";
 import { FieldEditor } from "@/components/fields/field-editor";
+import { ColumnSettings } from "@/components/records/column-settings";
 import { DataTable } from "@/components/records/data-table";
 import { RecordDialog } from "@/components/records/record-dialog";
 import { Button } from "@/components/ui/button";
@@ -15,8 +18,8 @@ import { useFields } from "@/hooks/use-fields";
 import { useRecords } from "@/hooks/use-records";
 import { api } from "@/lib/api";
 import type { Database, Record as DbRecord } from "@kyra/shared";
-import { FileSpreadsheet, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { FileSpreadsheet, Pencil, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { toast } from "sonner";
 
@@ -28,9 +31,72 @@ export function DatabaseDetail() {
 	const [database, setDatabase] = useState<Database | null>(null);
 	const [dbLoading, setDbLoading] = useState(true);
 	const [showAdd, setShowAdd] = useState(false);
+	const [showEdit, setShowEdit] = useState(false);
+	const [showDelete, setShowDelete] = useState(false);
 	const [editRecord, setEditRecord] = useState<DbRecord | null>(null);
 	const [deleteRecord, setDeleteRecord] = useState<DbRecord | null>(null);
 	const [deleting, setDeleting] = useState(false);
+
+	// Column visibility & order (persisted per database in localStorage)
+	const storageKey = `kyra:col-config:${databaseId}`;
+
+	const [visibleIds, setVisibleIds] = useState<Set<string>>(() => new Set());
+	const [orderedIds, setOrderedIds] = useState<string[]>([]);
+	const [colConfigReady, setColConfigReady] = useState(false);
+
+	// Sync column config when fields load
+	useEffect(() => {
+		if (fieldsLoading || fields.length === 0) return;
+
+		const fieldIds = fields.map((f) => f.id);
+		try {
+			const raw = localStorage.getItem(storageKey);
+			if (raw) {
+				const saved = JSON.parse(raw) as { visibleIds: string[]; orderedIds: string[] };
+				// Merge: keep saved order but add any new fields at the end
+				const savedOrderSet = new Set(saved.orderedIds);
+				const merged = [
+					...saved.orderedIds.filter((id) => fieldIds.includes(id)),
+					...fieldIds.filter((id) => !savedOrderSet.has(id)),
+				];
+				const savedVisible = new Set(saved.visibleIds.filter((id) => fieldIds.includes(id)));
+				// New fields default to visible
+				for (const id of fieldIds) {
+					if (!savedOrderSet.has(id)) savedVisible.add(id);
+				}
+				setOrderedIds(merged);
+				setVisibleIds(savedVisible);
+				setColConfigReady(true);
+				return;
+			}
+		} catch {
+			// ignore corrupt localStorage
+		}
+		setOrderedIds(fieldIds);
+		setVisibleIds(new Set(fieldIds));
+		setColConfigReady(true);
+	}, [fieldsLoading, fields, storageKey]);
+
+	const handleColumnChange = useCallback(
+		(nextVisible: Set<string>, nextOrder: string[]) => {
+			setVisibleIds(nextVisible);
+			setOrderedIds(nextOrder);
+			localStorage.setItem(
+				storageKey,
+				JSON.stringify({ visibleIds: [...nextVisible], orderedIds: nextOrder }),
+			);
+		},
+		[storageKey],
+	);
+
+	const displayFields = useMemo(() => {
+		if (!colConfigReady) return fields;
+		const fieldMap = new Map(fields.map((f) => [f.id, f]));
+		return orderedIds
+			.filter((id) => visibleIds.has(id))
+			.map((id) => fieldMap.get(id))
+			.filter(Boolean) as typeof fields;
+	}, [fields, orderedIds, visibleIds, colConfigReady]);
 
 	useEffect(() => {
 		if (!databaseId) return;
@@ -78,11 +144,32 @@ export function DatabaseDetail() {
 
 	return (
 		<div>
-			<div className="mb-6">
-				<h2 className="text-2xl font-semibold">{database?.name || "Database"}</h2>
-				{database?.description && (
-					<p className="mt-1 text-sm text-muted-foreground">{database.description}</p>
-				)}
+			<div className="mb-6 flex items-center justify-between">
+				<div>
+					<h2 className="text-2xl font-semibold">{database?.name || "Database"}</h2>
+					{database?.description && (
+						<p className="mt-1 text-sm text-muted-foreground">{database.description}</p>
+					)}
+				</div>
+				<div className="flex items-center gap-1">
+					<Button
+						variant="ghost"
+						size="icon"
+						onClick={() => setShowEdit(true)}
+						title="Edit database"
+					>
+						<Pencil className="h-4 w-4" />
+					</Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="text-destructive hover:text-destructive"
+						onClick={() => setShowDelete(true)}
+						title="Delete database"
+					>
+						<Trash2 className="h-4 w-4" />
+					</Button>
+				</div>
 			</div>
 
 			<FieldEditor databaseId={databaseId} />
@@ -90,7 +177,17 @@ export function DatabaseDetail() {
 			<Separator className="my-8" />
 
 			<div className="mb-4 flex items-center justify-between">
-				<h3 className="text-lg font-medium">Records</h3>
+				<div className="flex items-center gap-1">
+					<h3 className="text-lg font-medium">Records</h3>
+					{fields.length > 0 && (
+						<ColumnSettings
+							fields={fields}
+							visibleIds={visibleIds}
+							orderedIds={orderedIds}
+							onChange={handleColumnChange}
+						/>
+					)}
+				</div>
 				<Button size="sm" onClick={() => setShowAdd(true)} disabled={fields.length === 0}>
 					<Plus className="mr-2 h-4 w-4" /> Add Record
 				</Button>
@@ -115,7 +212,7 @@ export function DatabaseDetail() {
 				</div>
 			) : (
 				<DataTable
-					fields={fields}
+					fields={displayFields}
 					records={records}
 					onEdit={setEditRecord}
 					onDelete={setDeleteRecord}
@@ -155,6 +252,19 @@ export function DatabaseDetail() {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			<EditDatabaseDialog
+				database={database}
+				open={showEdit}
+				onOpenChange={setShowEdit}
+				onSuccess={setDatabase}
+			/>
+
+			<DeleteDatabaseDialog
+				database={database}
+				open={showDelete}
+				onOpenChange={setShowDelete}
+			/>
 		</div>
 	);
 }
