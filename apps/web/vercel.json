@@ -1,7 +1,7 @@
 {
-	"framework": null,
-	"installCommand": "bun install",
-	"buildCommand": "turbo build --filter=@kyra/web && mv apps/web/dist dist",
+	"framework": "vite",
+	"installCommand": "cd ../.. && bun install",
+	"buildCommand": "cd ../.. && turbo build --filter=@kyra/web",
 	"outputDirectory": "dist",
 	"rewrites": [
 		{ "source": "/api/(.*)", "destination": "/api" },

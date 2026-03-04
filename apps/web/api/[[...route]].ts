@@ -1,4 +1,4 @@
-import { app } from "../apps/api/src/app";
+import { app } from "../../api/src/app";
 
 export const config = { runtime: "edge" };
 
