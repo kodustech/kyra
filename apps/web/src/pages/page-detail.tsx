@@ -291,12 +291,11 @@ function PreviewView({ pageId }: { pageId: string }) {
 							<RichTextRenderer content={block.content ?? ""} />
 						) : (
 							<>
-								<div className="mb-4 flex items-center justify-between">
-									{showTitle ? (
+								<div className={`flex items-center justify-between ${showTitle ? "mb-4" : "mb-1"}`}>
+									{showTitle && (
 										<h3 className="text-lg font-medium">{displayTitle}</h3>
-									) : (
-										<div />
 									)}
+									<div className={showTitle ? "" : "ml-auto"}>
 									<BlockSettings
 										title={block.title}
 										icon={block.icon}
@@ -309,6 +308,7 @@ function PreviewView({ pageId }: { pageId: string }) {
 										orderedIds={colConfig?.orderedIds}
 										onColumnChange={colConfig?.handleColumnChange}
 									/>
+									</div>
 								</div>
 								<BlockRenderer
 									databaseId={block.database_id!}
