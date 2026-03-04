@@ -4,7 +4,6 @@
 	"buildCommand": "cd ../.. && turbo build --filter=@kyra/web && bun build apps/api/src/app.ts --outfile apps/web/api/_app.mjs --target bun --format esm",
 	"outputDirectory": "dist",
 	"rewrites": [
-		{ "source": "/api/(.*)", "destination": "/api" },
-		{ "source": "/((?!api/).*)", "destination": "/index.html" }
+		{ "source": "/(.*)", "destination": "/index.html" }
 	]
 }
