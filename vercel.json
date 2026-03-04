@@ -1,8 +1,8 @@
 {
 	"framework": null,
 	"installCommand": "bun install",
-	"buildCommand": "bunx turbo build --filter=@kyra/web",
-	"outputDirectory": "apps/web/dist",
+	"buildCommand": "bunx turbo build --filter=@kyra/web && cp -r apps/web/dist .",
+	"outputDirectory": "dist",
 	"rewrites": [
 		{ "source": "/api/(.*)", "destination": "/api" },
 		{ "source": "/((?!api/).*)", "destination": "/index.html" }
