@@ -1,8 +1,8 @@
 {
 	"framework": null,
 	"installCommand": "bun install",
-	"buildCommand": "turbo build --filter=@kyra/web",
-	"outputDirectory": "apps/web/dist",
+	"buildCommand": "turbo build --filter=@kyra/web && mv apps/web/dist dist",
+	"outputDirectory": "dist",
 	"rewrites": [
 		{ "source": "/api/(.*)", "destination": "/api" },
 		{ "source": "/((?!api/).*)", "destination": "/index.html" }
