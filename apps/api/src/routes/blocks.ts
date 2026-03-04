@@ -1,5 +1,4 @@
 import { createBlockSchema, reorderBlocksSchema, updateBlockSchema } from "@kyra/shared";
-import type { CreateBlockInput } from "@kyra/shared";
 import { Hono } from "hono";
 import { supabase } from "../lib/supabase";
 import { parseBody } from "../lib/validate";
@@ -25,7 +24,7 @@ blocks.post("/", async (c) => {
 	const parsed = await parseBody(c, createBlockSchema);
 	if ("error" in parsed) return parsed.error;
 
-	const body = parsed.data as CreateBlockInput;
+	const body = parsed.data;
 
 	// Get next position
 	const { data: existing } = await supabase
@@ -37,14 +36,24 @@ blocks.post("/", async (c) => {
 
 	const nextPosition = existing && existing.length > 0 ? existing[0].position + 1 : 0;
 
+	const insertPayload =
+		body.view_type === "richtext"
+			? {
+					page_id: pageId,
+					view_type: body.view_type,
+					content: body.content ?? "",
+					position: nextPosition,
+				}
+			: {
+					page_id: pageId,
+					database_id: body.database_id,
+					view_type: body.view_type,
+					position: nextPosition,
+				};
+
 	const { data, error } = await supabase
 		.from("blocks")
-		.insert({
-			page_id: pageId,
-			database_id: body.database_id,
-			view_type: body.view_type,
-			position: nextPosition,
-		})
+		.insert(insertPayload)
 		.select("*, database:databases(*)")
 		.single();
 

@@ -1,5 +1,6 @@
 import { BlockEditor } from "@/components/blocks/block-editor";
 import { BlockRenderer } from "@/components/blocks/block-renderer";
+import { RichTextRenderer } from "@/components/blocks/rich-text-renderer";
 import { DeletePageDialog } from "@/components/pages/delete-page-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import { useBlocks } from "@/hooks/use-blocks";
 import { usePages } from "@/hooks/use-pages";
 import { api } from "@/lib/api";
 import type { Page } from "@kyra/shared";
+import { IconPicker } from "@/components/ui/icon-picker";
 import { ExternalLink, Eye, Settings, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
@@ -25,6 +27,7 @@ export function PageDetail() {
 	const [loading, setLoading] = useState(true);
 	const [name, setName] = useState("");
 	const [slug, setSlug] = useState("");
+	const [icon, setIcon] = useState<string | null>(null);
 	const [published, setPublished] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [showDelete, setShowDelete] = useState(false);
@@ -37,6 +40,7 @@ export function PageDetail() {
 				setPage(p);
 				setName(p.name);
 				setSlug(p.slug);
+				setIcon(p.icon);
 				setPublished(p.published);
 			})
 			.catch(() => {})
@@ -62,6 +66,19 @@ export function PageDetail() {
 			toast.error((err as Error).message);
 		} finally {
 			setSaving(false);
+		}
+	}
+
+	async function handleIconChange(value: string | null) {
+		const prev = icon;
+		setIcon(value);
+		if (!page) return;
+		try {
+			const updated = await update(page.id, { icon: value });
+			setPage(updated);
+		} catch (err) {
+			toast.error((err as Error).message);
+			setIcon(prev);
 		}
 	}
 
@@ -98,7 +115,10 @@ export function PageDetail() {
 		<div>
 			{/* Header — always visible */}
 			<div className="mb-6 flex items-center justify-between">
-				<h2 className="text-2xl font-semibold">{page.name}</h2>
+				<div className="flex items-center gap-2">
+					<IconPicker value={icon} onChange={handleIconChange} />
+					<h2 className="text-2xl font-semibold">{page.name}</h2>
+				</div>
 				<div className="flex items-center gap-2">
 					{published && (
 						<Button variant="outline" size="sm" asChild>
@@ -181,7 +201,7 @@ function ConfigView({
 
 	return (
 		<>
-			<div className="mb-8 space-y-4 rounded-lg border border-border p-4">
+			<div className="mb-8 space-y-4 rounded-xl border border-border p-6">
 				<div className="grid gap-4 sm:grid-cols-2">
 					<div className="space-y-2">
 						<Label htmlFor="page-name">Name</Label>
@@ -231,13 +251,26 @@ function PreviewView({ pageId }: { pageId: string }) {
 	return (
 		<div className="space-y-8">
 			{blocks.map((block) => (
-				<div key={block.id} className="rounded-lg border border-border p-6">
-					<h3 className="mb-4 text-lg font-medium">{block.database.name}</h3>
-					<BlockRenderer
-						databaseId={block.database_id}
-						databaseName={block.database.name}
-						viewType={block.view_type}
-					/>
+				<div
+					key={block.id}
+					className={
+						block.view_type === "richtext"
+							? ""
+							: "rounded-lg border border-border p-6"
+					}
+				>
+					{block.view_type === "richtext" ? (
+						<RichTextRenderer content={block.content ?? ""} />
+					) : (
+						<>
+							<h3 className="mb-4 text-lg font-medium">{block.database?.name}</h3>
+							<BlockRenderer
+								databaseId={block.database_id!}
+								databaseName={block.database?.name ?? ""}
+								viewType={block.view_type}
+							/>
+						</>
+					)}
 				</div>
 			))}
 		</div>

@@ -30,9 +30,13 @@ publicRoutes.get("/:slug", async (c) => {
 
 	if (blocksError) return c.json({ error: blocksError.message }, 500);
 
-	// For each block, get fields and records
+	// For each block, get fields and records (skip for richtext blocks)
 	const blocksWithData = await Promise.all(
 		(blocks || []).map(async (block) => {
+			if (block.view_type === "richtext") {
+				return { ...block, fields: [], records: [] };
+			}
+
 			const { data: fields } = await supabase
 				.from("fields")
 				.select("*")
@@ -83,6 +87,10 @@ publicRoutes.post("/:slug/submit/:blockId", async (c) => {
 
 	if (!block) {
 		return c.json({ error: "Block not found" }, 404);
+	}
+
+	if (block.view_type === "richtext") {
+		return c.json({ error: "Rich text blocks do not accept submissions" }, 400);
 	}
 
 	// Get fields for validation

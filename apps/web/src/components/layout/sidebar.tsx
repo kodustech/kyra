@@ -15,7 +15,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Database as DatabaseType, Page as PageType } from "@kyra/shared";
-import { ChevronDown, Database, FileText, GripVertical, Plus } from "lucide-react";
+import { PageIcon } from "@/components/ui/icon-picker";
+import { ChevronDown, Database, GripVertical, Plus } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router";
 
@@ -99,7 +100,7 @@ export function Sidebar({
 										id={page.id}
 										to={`/pages/${page.id}`}
 										label={page.name}
-										icon={<FileText className="h-4 w-4 shrink-0" />}
+										icon={<PageIcon name={page.icon} className="h-4 w-4 shrink-0" />}
 										active={location.pathname === `/pages/${page.id}`}
 									/>
 								))}
@@ -170,7 +171,7 @@ function SectionHeader({
 }) {
 	return (
 		<div
-			className={`flex h-10 items-center justify-between border-b border-sidebar-border px-4 ${borderTop ? "border-t" : ""}`}
+			className={`flex h-12 items-center justify-between border-b border-sidebar-border px-4 ${borderTop ? "border-t" : ""}`}
 		>
 			<button
 				type="button"
@@ -232,7 +233,7 @@ function SortableNavItem({
 			</button>
 			<Link
 				to={to}
-				className={`flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
+				className={`flex flex-1 items-center gap-2 rounded-lg px-2 py-2 text-sm transition-colors ${
 					active
 						? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
 						: "text-sidebar-foreground hover:bg-sidebar-accent"

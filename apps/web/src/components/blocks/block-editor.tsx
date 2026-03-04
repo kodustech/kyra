@@ -1,12 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useBlocks } from "@/hooks/use-blocks";
-import type { ViewType } from "@kyra/shared";
+import type { CreateBlockInput } from "@kyra/shared";
 import { Layers, Plus } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BlockFormDialog } from "./block-form-dialog";
 import { BlockRenderer } from "./block-renderer";
+import { RichTextEditor } from "./rich-text-editor";
 import { SortableBlockList } from "./sortable-block-list";
 
 interface BlockEditorProps {
@@ -14,10 +15,52 @@ interface BlockEditorProps {
 }
 
 export function BlockEditor({ pageId }: BlockEditorProps) {
-	const { blocks, loading, create, remove, reorder } = useBlocks(pageId);
+	const { blocks, loading, create, update, remove, reorder } = useBlocks(pageId);
 	const [showAdd, setShowAdd] = useState(false);
+	const [richTextContents, setRichTextContents] = useState<Record<string, string>>({});
+	const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-	async function handleAdd(data: { database_id: string; view_type: ViewType }) {
+	// Initialize richtext content from blocks
+	useEffect(() => {
+		const initial: Record<string, string> = {};
+		for (const block of blocks) {
+			if (block.view_type === "richtext") {
+				initial[block.id] = block.content ?? "";
+			}
+		}
+		setRichTextContents(initial);
+	}, [blocks]);
+
+	const handleRichTextChange = useCallback(
+		(blockId: string, content: string) => {
+			setRichTextContents((prev) => ({ ...prev, [blockId]: content }));
+
+			if (debounceTimers.current[blockId]) {
+				clearTimeout(debounceTimers.current[blockId]);
+			}
+
+			debounceTimers.current[blockId] = setTimeout(async () => {
+				try {
+					await update(blockId, { content });
+				} catch (err) {
+					toast.error((err as Error).message);
+				}
+			}, 800);
+		},
+		[update],
+	);
+
+	// Clean up timers on unmount
+	useEffect(() => {
+		const timers = debounceTimers.current;
+		return () => {
+			for (const timer of Object.values(timers)) {
+				clearTimeout(timer);
+			}
+		};
+	}, []);
+
+	async function handleAdd(data: CreateBlockInput) {
 		try {
 			await create(data);
 			toast.success("Block added");
@@ -76,13 +119,22 @@ export function BlockEditor({ pageId }: BlockEditorProps) {
 						{blocks.map((block) => (
 							<div key={block.id} className="rounded-lg border border-border p-4">
 								<h4 className="mb-3 text-sm font-medium text-muted-foreground">
-									{block.database.name} — {block.view_type}
+									{block.view_type === "richtext"
+										? "Rich Text"
+										: `${block.database?.name} — ${block.view_type}`}
 								</h4>
-								<BlockRenderer
-									databaseId={block.database_id}
-									databaseName={block.database.name}
-									viewType={block.view_type}
-								/>
+								{block.view_type === "richtext" ? (
+									<RichTextEditor
+										content={richTextContents[block.id] ?? block.content ?? ""}
+										onChange={(content) => handleRichTextChange(block.id, content)}
+									/>
+								) : (
+									<BlockRenderer
+										databaseId={block.database_id!}
+										databaseName={block.database?.name ?? ""}
+										viewType={block.view_type}
+									/>
+								)}
 							</div>
 						))}
 					</div>

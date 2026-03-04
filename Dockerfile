@@ -20,8 +20,8 @@ CMD ["bun", "run", "apps/api/src/index.ts"]
 # ─── Web: build static files ────────────────────────────────────────────────
 FROM base AS web-build
 
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_ANON_KEY
+ARG SUPABASE_URL
+ARG SUPABASE_ANON_KEY
 
 RUN bun run --filter=@kyra/web build
 

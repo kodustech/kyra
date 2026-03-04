@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { useDatabases } from "@/hooks/use-databases";
 import { usePages } from "@/hooks/use-pages";
 import type { Database as DatabaseType, Page as PageType } from "@kyra/shared";
+import { PageIcon } from "@/components/ui/icon-picker";
 import { Database, FileText, Plus } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
@@ -57,11 +58,11 @@ export function Dashboard() {
 						<Link
 							key={page.id}
 							to={`/pages/${page.id}`}
-							className="group rounded-lg border border-border bg-card p-4 transition-colors hover:bg-accent"
+							className="group rounded-xl border border-border bg-card p-5 shadow-sm transition-shadow hover:shadow-md"
 						>
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-2">
-									<FileText className="h-5 w-5 text-muted-foreground" />
+									<PageIcon name={page.icon} className="h-5 w-5 text-muted-foreground" />
 									<span className="font-medium">{page.name}</span>
 								</div>
 								<button

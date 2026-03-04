@@ -3,7 +3,7 @@ import type { Block, CreateBlockInput, UpdateBlockInput } from "@kyra/shared";
 import { useCallback, useEffect, useState } from "react";
 
 interface BlockWithDatabase extends Block {
-	database: { id: string; name: string; description: string | null };
+	database: { id: string; name: string; description: string | null } | null;
 }
 
 export function useBlocks(pageId: string) {

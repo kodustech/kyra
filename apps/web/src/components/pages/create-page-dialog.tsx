@@ -7,6 +7,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { IconPicker } from "@/components/ui/icon-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { usePages } from "@/hooks/use-pages";
@@ -31,6 +32,7 @@ export function CreatePageDialog({ open, onOpenChange }: CreatePageDialogProps) 
 	const navigate = useNavigate();
 	const [name, setName] = useState("");
 	const [slug, setSlug] = useState("");
+	const [icon, setIcon] = useState<string | null>(null);
 	const [slugManual, setSlugManual] = useState(false);
 	const [loading, setLoading] = useState(false);
 
@@ -52,10 +54,11 @@ export function CreatePageDialog({ open, onOpenChange }: CreatePageDialogProps) 
 
 		setLoading(true);
 		try {
-			const page = await create({ name: name.trim(), slug: slug.trim(), published: false });
+			const page = await create({ name: name.trim(), slug: slug.trim(), icon, published: false });
 			toast.success("Page created");
 			setName("");
 			setSlug("");
+			setIcon(null);
 			setSlugManual(false);
 			onOpenChange(false);
 			navigate(`/pages/${page.id}?config`);
@@ -79,13 +82,16 @@ export function CreatePageDialog({ open, onOpenChange }: CreatePageDialogProps) 
 					<div className="mt-4 space-y-4">
 						<div className="space-y-2">
 							<Label htmlFor="page-name">Name</Label>
-							<Input
-								id="page-name"
-								value={name}
-								onChange={(e) => handleNameChange(e.target.value)}
-								placeholder="e.g. Contact Form"
-								autoFocus
-							/>
+							<div className="flex items-center gap-2">
+								<IconPicker value={icon} onChange={setIcon} />
+								<Input
+									id="page-name"
+									value={name}
+									onChange={(e) => handleNameChange(e.target.value)}
+									placeholder="e.g. Contact Form"
+									autoFocus
+								/>
+							</div>
 						</div>
 						<div className="space-y-2">
 							<Label htmlFor="page-slug">Slug</Label>

@@ -1,3 +1,4 @@
+import { RichTextRenderer } from "@/components/blocks/rich-text-renderer";
 import { DataTable } from "@/components/records/data-table";
 import { DynamicForm } from "@/components/records/dynamic-form";
 import { Toaster } from "@/components/ui/sonner";
@@ -50,32 +51,45 @@ export function PublicPage() {
 
 			<div className="space-y-8">
 				{page.blocks.map((block) => (
-					<div key={block.id} className="rounded-lg border border-border p-6">
-						<h2 className="mb-4 text-lg font-medium">{block.database.name}</h2>
-
-						{block.fields.length === 0 ? (
-							<p className="text-sm text-muted-foreground">No fields configured</p>
-						) : block.view_type === "table" ? (
-							<DataTable
-								fields={block.fields}
-								records={block.records}
-								readOnly
-								onEdit={() => {}}
-								onDelete={() => {}}
-							/>
-						) : submitted.has(block.id) ? (
-							<div className="rounded-lg bg-green-50 p-6 text-center dark:bg-green-950">
-								<p className="text-green-700 dark:text-green-300">
-									Thank you! Your submission has been received.
-								</p>
-							</div>
+					<div
+						key={block.id}
+						className={
+							block.view_type === "richtext"
+								? ""
+								: "rounded-lg border border-border p-6"
+						}
+					>
+						{block.view_type === "richtext" ? (
+							<RichTextRenderer content={block.content ?? ""} />
 						) : (
-							<DynamicForm
-								fields={block.fields}
-								onSubmit={(data) => handleFormSubmit(block.id, data)}
-								onCancel={() => {}}
-								submitLabel="Submit"
-							/>
+							<>
+								<h2 className="mb-4 text-lg font-medium">{block.database?.name}</h2>
+
+								{block.fields.length === 0 ? (
+									<p className="text-sm text-muted-foreground">No fields configured</p>
+								) : block.view_type === "table" ? (
+									<DataTable
+										fields={block.fields}
+										records={block.records}
+										readOnly
+										onEdit={() => {}}
+										onDelete={() => {}}
+									/>
+								) : submitted.has(block.id) ? (
+									<div className="rounded-lg bg-green-50 p-6 text-center dark:bg-green-950">
+										<p className="text-green-700 dark:text-green-300">
+											Thank you! Your submission has been received.
+										</p>
+									</div>
+								) : (
+									<DynamicForm
+										fields={block.fields}
+										onSubmit={(data) => handleFormSubmit(block.id, data)}
+										onCancel={() => {}}
+										submitLabel="Submit"
+									/>
+								)}
+							</>
 						)}
 					</div>
 				))}

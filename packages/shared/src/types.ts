@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // ─── View Types ─────────────────────────────────────────────────────────────────
 
-export const VIEW_TYPES = ["form", "table"] as const;
+export const VIEW_TYPES = ["form", "table", "richtext"] as const;
 
 export type ViewType = (typeof VIEW_TYPES)[number];
 
@@ -60,6 +60,7 @@ export interface Page {
 	id: string;
 	name: string;
 	slug: string;
+	icon: string | null;
 	published: boolean;
 	position: number;
 	created_at: string;
@@ -69,15 +70,16 @@ export interface Page {
 export interface Block {
 	id: string;
 	page_id: string;
-	database_id: string;
+	database_id: string | null;
 	view_type: ViewType;
+	content: string | null;
 	position: number;
 	created_at: string;
 	updated_at: string;
 }
 
 export interface BlockWithRelations extends Block {
-	database: Database;
+	database: Database | null;
 	fields: Field[];
 }
 
@@ -177,6 +179,7 @@ export const createPageSchema = z.object({
 		.min(1, "Slug is required")
 		.max(255)
 		.regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase alphanumeric with hyphens"),
+	icon: z.string().max(50).nullable().optional(),
 	published: z.boolean().default(false),
 });
 
@@ -188,6 +191,7 @@ export const updatePageSchema = z.object({
 		.max(255)
 		.regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase alphanumeric with hyphens")
 		.optional(),
+	icon: z.string().max(50).nullable().optional(),
 	published: z.boolean().optional(),
 });
 
@@ -201,14 +205,25 @@ export type ReorderPagesInput = z.infer<typeof reorderPagesSchema>;
 
 // ─── Zod Schemas: Blocks ───────────────────────────────────────────────────────
 
-export const createBlockSchema = z.object({
-	database_id: z.string().uuid("Invalid database ID"),
-	view_type: viewTypeSchema,
-});
+export const createBlockSchema = z.discriminatedUnion("view_type", [
+	z.object({
+		view_type: z.literal("form"),
+		database_id: z.string().uuid("Invalid database ID"),
+	}),
+	z.object({
+		view_type: z.literal("table"),
+		database_id: z.string().uuid("Invalid database ID"),
+	}),
+	z.object({
+		view_type: z.literal("richtext"),
+		content: z.string().optional(),
+	}),
+]);
 
 export const updateBlockSchema = z.object({
 	database_id: z.string().uuid().optional(),
 	view_type: viewTypeSchema.optional(),
+	content: z.string().optional(),
 });
 
 export const reorderBlocksSchema = z.object({

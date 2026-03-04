@@ -8,7 +8,7 @@ interface BlockRowProps {
 	block: {
 		id: string;
 		view_type: string;
-		database: { id: string; name: string };
+		database: { id: string; name: string } | null;
 	};
 	onDelete: (id: string) => void;
 }
@@ -39,7 +39,9 @@ export function BlockRow({ block, onDelete }: BlockRowProps) {
 				<GripVertical className="h-4 w-4" />
 			</button>
 
-			<span className="flex-1 truncate text-sm font-medium">{block.database.name}</span>
+			<span className="flex-1 truncate text-sm font-medium">
+				{block.view_type === "richtext" ? "Rich Text" : block.database?.name}
+			</span>
 
 			<Badge variant="secondary" className="text-xs">
 				{block.view_type}

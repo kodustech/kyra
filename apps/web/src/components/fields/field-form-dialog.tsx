@@ -60,7 +60,15 @@ export function FieldFormDialog({ field, open, onOpenChange, onSubmit }: FieldFo
 		}
 	}, [field, open]);
 
-	async function handleSubmit(e: React.FormEvent) {
+	function resetForm() {
+		setName("");
+		setType("text");
+		setRequired(false);
+		setMask("");
+		setOptionsText("");
+	}
+
+	async function handleSubmit(e: React.FormEvent, addAnother = false) {
 		e.preventDefault();
 		if (!name.trim()) return;
 
@@ -81,7 +89,13 @@ export function FieldFormDialog({ field, open, onOpenChange, onSubmit }: FieldFo
 				mask: mask.trim() || null,
 				options,
 			});
-			onOpenChange(false);
+
+			if (addAnother) {
+				resetForm();
+				toast.success("Field added");
+			} else {
+				onOpenChange(false);
+			}
 		} catch (err) {
 			toast.error((err as Error).message);
 		} finally {
@@ -154,6 +168,16 @@ export function FieldFormDialog({ field, open, onOpenChange, onSubmit }: FieldFo
 						<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
 							Cancel
 						</Button>
+						{!isEdit && (
+							<Button
+								type="button"
+								variant="outline"
+								disabled={!name.trim() || loading}
+								onClick={(e) => handleSubmit(e, true)}
+							>
+								Add & Add Another
+							</Button>
+						)}
 						<Button type="submit" disabled={!name.trim() || loading}>
 							{loading ? "Saving..." : isEdit ? "Save" : "Add Field"}
 						</Button>
