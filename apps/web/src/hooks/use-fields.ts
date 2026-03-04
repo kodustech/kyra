@@ -27,6 +27,14 @@ export function useFields(databaseId: string) {
 		return field;
 	};
 
+	const bulkCreate = async (inputs: CreateFieldInput[]) => {
+		const created = await api.post<Field[]>(`/databases/${databaseId}/fields/bulk`, {
+			fields: inputs,
+		});
+		setFields((prev) => [...prev, ...created]);
+		return created;
+	};
+
 	const update = async (fieldId: string, input: UpdateFieldInput) => {
 		const field = await api.patch<Field>(`/databases/${databaseId}/fields/${fieldId}`, input);
 		setFields((prev) => prev.map((f) => (f.id === fieldId ? field : f)));
@@ -51,5 +59,5 @@ export function useFields(databaseId: string) {
 		});
 	};
 
-	return { fields, loading, refetch: fetch, create, update, remove, reorder };
+	return { fields, loading, refetch: fetch, create, bulkCreate, update, remove, reorder };
 }

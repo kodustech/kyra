@@ -1,0 +1,5 @@
+ALTER TABLE blocks ADD COLUMN IF NOT EXISTS title text DEFAULT NULL;
+ALTER TABLE blocks ADD COLUMN IF NOT EXISTS icon text DEFAULT NULL;
+ALTER TABLE blocks ADD COLUMN IF NOT EXISTS show_title boolean NOT NULL DEFAULT true;
+ALTER TABLE blocks ADD COLUMN IF NOT EXISTS show_border boolean NOT NULL DEFAULT true;
+NOTIFY pgrst, 'reload schema';

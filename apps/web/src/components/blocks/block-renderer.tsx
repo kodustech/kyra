@@ -7,19 +7,25 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { ColumnSettings } from "@/components/records/column-settings";
 import { KanbanBoard } from "@/components/kanban/kanban-board";
 import { DataTable } from "@/components/records/data-table";
 import { DynamicForm } from "@/components/records/dynamic-form";
 import { RecordDialog } from "@/components/records/record-dialog";
 import { useFields } from "@/hooks/use-fields";
 import { useRecords } from "@/hooks/use-records";
-import type { Record as DbRecord, ViewType } from "@kyra/shared";
+import type { Field, Record as DbRecord, ViewType } from "@kyra/shared";
 import { Plus } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 const RECORD_CHANGE_EVENT = "record-change";
+
+export interface ColumnConfig {
+	fields: Field[];
+	visibleIds: Set<string>;
+	orderedIds: string[];
+	handleColumnChange: (visibleIds: Set<string>, orderedIds: string[]) => void;
+}
 
 interface BlockRendererProps {
 	databaseId: string;
@@ -27,6 +33,7 @@ interface BlockRendererProps {
 	viewType: ViewType;
 	readOnly?: boolean;
 	onSubmit?: (data: { [fieldId: string]: unknown }) => Promise<void>;
+	onColumnConfigReady?: (config: ColumnConfig) => void;
 }
 
 export function BlockRenderer({
@@ -35,8 +42,9 @@ export function BlockRenderer({
 	viewType,
 	readOnly,
 	onSubmit,
+	onColumnConfigReady,
 }: BlockRendererProps) {
-	const { fields, loading: fieldsLoading } = useFields(databaseId);
+	const { fields, loading: fieldsLoading, update: updateField } = useFields(databaseId);
 	const {
 		records,
 		loading: recordsLoading,
@@ -106,6 +114,17 @@ export function BlockRenderer({
 			.map((id) => fieldMap.get(id))
 			.filter(Boolean) as typeof fields;
 	}, [fields, orderedIds, visibleIds, colConfigReady]);
+
+	// Expose column config to parent (for BlockSettings) — use ref to avoid infinite loop
+	const onColumnConfigReadyRef = useRef(onColumnConfigReady);
+	useEffect(() => {
+		onColumnConfigReadyRef.current = onColumnConfigReady;
+	});
+
+	useEffect(() => {
+		if (!colConfigReady || viewType !== "table" || !onColumnConfigReadyRef.current) return;
+		onColumnConfigReadyRef.current({ fields, visibleIds, orderedIds, handleColumnChange });
+	}, [colConfigReady, fields, visibleIds, orderedIds, handleColumnChange, viewType]);
 
 	// Listen for record changes from other blocks targeting the same database
 	useEffect(() => {
@@ -178,15 +197,7 @@ export function BlockRenderer({
 		return (
 			<>
 				{!readOnly && (
-					<div className="mb-3 flex items-center justify-between">
-						<div className="flex items-center gap-1">
-							<ColumnSettings
-								fields={fields}
-								visibleIds={visibleIds}
-								orderedIds={orderedIds}
-								onChange={handleColumnChange}
-							/>
-						</div>
+					<div className="mb-3 flex items-center justify-end">
 						<Button size="sm" onClick={() => setShowAdd(true)}>
 							<Plus className="mr-2 h-4 w-4" /> Add Record
 						</Button>
@@ -287,6 +298,18 @@ export function BlockRenderer({
 				onDeleteRecord={async (recordId) => {
 					await remove(recordId);
 					toast.success("Record deleted");
+				}}
+				onAddStatus={async (label, color) => {
+					const existingOptions = statusField.settings?.options ?? [];
+					const newOption = {
+						id: label.toLowerCase().replace(/\s+/g, "-"),
+						label,
+						color,
+						icon: "circle",
+					};
+					await updateField(statusField.id, {
+						settings: { options: [...existingOptions, newOption] },
+					});
 				}}
 			/>
 		);

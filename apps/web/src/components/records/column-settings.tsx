@@ -73,7 +73,7 @@ function SortableColumnRow({
 	);
 }
 
-export function ColumnSettings({ fields, visibleIds, orderedIds, onChange }: ColumnSettingsProps) {
+export function ColumnSettingsContent({ fields, visibleIds, orderedIds, onChange }: ColumnSettingsProps) {
 	const sensors = useSensors(
 		useSensor(PointerSensor),
 		useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -107,6 +107,35 @@ export function ColumnSettings({ fields, visibleIds, orderedIds, onChange }: Col
 	}
 
 	return (
+		<>
+			<p className="mb-2 px-1 text-xs font-medium text-muted-foreground">Columns</p>
+			<DndContext
+				sensors={sensors}
+				collisionDetection={closestCenter}
+				onDragEnd={handleDragEnd}
+			>
+				<SortableContext
+					items={sortedFields.map((f) => f.id)}
+					strategy={verticalListSortingStrategy}
+				>
+					<div className="space-y-0.5">
+						{sortedFields.map((field) => (
+							<SortableColumnRow
+								key={field.id}
+								field={field}
+								visible={visibleIds.has(field.id)}
+								onToggle={() => handleToggle(field.id)}
+							/>
+						))}
+					</div>
+				</SortableContext>
+			</DndContext>
+		</>
+	);
+}
+
+export function ColumnSettings({ fields, visibleIds, orderedIds, onChange }: ColumnSettingsProps) {
+	return (
 		<Popover>
 			<PopoverTrigger asChild>
 				<Button variant="ghost" size="icon" title="Column settings">
@@ -114,28 +143,12 @@ export function ColumnSettings({ fields, visibleIds, orderedIds, onChange }: Col
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent align="end" className="w-64 p-2">
-				<p className="mb-2 px-1 text-xs font-medium text-muted-foreground">Columns</p>
-				<DndContext
-					sensors={sensors}
-					collisionDetection={closestCenter}
-					onDragEnd={handleDragEnd}
-				>
-					<SortableContext
-						items={sortedFields.map((f) => f.id)}
-						strategy={verticalListSortingStrategy}
-					>
-						<div className="space-y-0.5">
-							{sortedFields.map((field) => (
-								<SortableColumnRow
-									key={field.id}
-									field={field}
-									visible={visibleIds.has(field.id)}
-									onToggle={() => handleToggle(field.id)}
-								/>
-							))}
-						</div>
-					</SortableContext>
-				</DndContext>
+				<ColumnSettingsContent
+					fields={fields}
+					visibleIds={visibleIds}
+					orderedIds={orderedIds}
+					onChange={onChange}
+				/>
 			</PopoverContent>
 		</Popover>
 	);

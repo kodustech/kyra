@@ -8,10 +8,11 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { useFields } from "@/hooks/use-fields";
-import type { Field, FieldType, KanbanStatusOption } from "@kyra/shared";
+import type { CreateFieldInput, Field, FieldType, KanbanStatusOption } from "@kyra/shared";
 import { Columns3, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { BulkFieldEditor } from "./bulk-field-editor";
 import { FieldFormDialog } from "./field-form-dialog";
 import { SortableFieldList } from "./sortable-field-list";
 
@@ -20,7 +21,7 @@ interface FieldEditorProps {
 }
 
 export function FieldEditor({ databaseId }: FieldEditorProps) {
-	const { fields, loading, create, update, remove, reorder } = useFields(databaseId);
+	const { fields, loading, create, bulkCreate, update, remove, reorder } = useFields(databaseId);
 	const [showAdd, setShowAdd] = useState(false);
 	const [editField, setEditField] = useState<Field | null>(null);
 	const [deleteField, setDeleteField] = useState<Field | null>(null);
@@ -28,17 +29,8 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 
 	const hasKanbanStatus = fields.some((f) => f.type === "kanban_status");
 
-	async function handleCreate(data: {
-		name: string;
-		type: FieldType;
-		required: boolean;
-		mask: string | null;
-		options: string[] | null;
-		settings?: { options: KanbanStatusOption[] } | null;
-		highlight?: boolean;
-	}) {
-		await create({ ...data, highlight: data.highlight ?? false });
-		toast.success("Field added");
+	async function handleBulkCreate(inputs: CreateFieldInput[]) {
+		await bulkCreate(inputs);
 	}
 
 	async function handleUpdate(data: {
@@ -111,7 +103,7 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 				/>
 			)}
 
-			<FieldFormDialog open={showAdd} onOpenChange={setShowAdd} hasKanbanStatus={hasKanbanStatus} onSubmit={handleCreate} />
+			<BulkFieldEditor open={showAdd} onOpenChange={setShowAdd} hasKanbanStatus={hasKanbanStatus} onSave={handleBulkCreate} />
 
 			<FieldFormDialog
 				field={editField}

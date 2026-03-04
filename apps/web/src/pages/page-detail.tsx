@@ -1,5 +1,6 @@
 import { BlockEditor } from "@/components/blocks/block-editor";
-import { BlockRenderer } from "@/components/blocks/block-renderer";
+import { BlockRenderer, type ColumnConfig } from "@/components/blocks/block-renderer";
+import { BlockSettings } from "@/components/blocks/block-settings";
 import { RichTextRenderer } from "@/components/blocks/rich-text-renderer";
 import { DeletePageDialog } from "@/components/pages/delete-page-dialog";
 import { Button } from "@/components/ui/button";
@@ -9,10 +10,10 @@ import { Switch } from "@/components/ui/switch";
 import { useBlocks } from "@/hooks/use-blocks";
 import { usePages } from "@/hooks/use-pages";
 import { api } from "@/lib/api";
-import type { Page } from "@kyra/shared";
+import type { Page, UpdateBlockInput } from "@kyra/shared";
 import { IconPicker } from "@/components/ui/icon-picker";
 import { ExternalLink, Eye, Settings, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
@@ -233,7 +234,26 @@ function ConfigView({
 // ─── Preview View ───────────────────────────────────────────────────────────────
 
 function PreviewView({ pageId }: { pageId: string }) {
-	const { blocks, loading } = useBlocks(pageId);
+	const { blocks, loading, update } = useBlocks(pageId);
+	const [columnConfigs, setColumnConfigs] = useState<Record<string, ColumnConfig>>({});
+
+	const handleBlockUpdate = useCallback(
+		async (blockId: string, input: UpdateBlockInput) => {
+			try {
+				await update(blockId, input);
+			} catch (err) {
+				toast.error((err as Error).message);
+			}
+		},
+		[update],
+	);
+
+	const handleColumnConfigReady = useCallback(
+		(blockId: string, config: ColumnConfig) => {
+			setColumnConfigs((prev) => ({ ...prev, [blockId]: config }));
+		},
+		[],
+	);
 
 	if (loading) {
 		return <p className="py-8 text-center text-muted-foreground">Loading...</p>;
@@ -250,29 +270,59 @@ function PreviewView({ pageId }: { pageId: string }) {
 
 	return (
 		<div className="space-y-8">
-			{blocks.map((block) => (
-				<div
-					key={block.id}
-					className={
-						block.view_type === "richtext"
-							? ""
-							: "rounded-lg border border-border p-6"
-					}
-				>
-					{block.view_type === "richtext" ? (
-						<RichTextRenderer content={block.content ?? ""} />
-					) : (
-						<>
-							<h3 className="mb-4 text-lg font-medium">{block.database?.name}</h3>
-							<BlockRenderer
-								databaseId={block.database_id!}
-								databaseName={block.database?.name ?? ""}
-								viewType={block.view_type}
-							/>
-						</>
-					)}
-				</div>
-			))}
+			{blocks.map((block) => {
+				const showBorder = block.view_type !== "richtext" && block.show_border !== false;
+				const showTitle = block.view_type !== "richtext" && block.show_title !== false;
+				const displayTitle = block.title ?? block.database?.name;
+				const colConfig = columnConfigs[block.id];
+
+				return (
+					<div
+						key={block.id}
+						className={`group/block relative ${
+							block.view_type === "richtext"
+								? ""
+								: showBorder
+									? "rounded-lg border border-border p-6"
+									: "p-6"
+						}`}
+					>
+						{block.view_type === "richtext" ? (
+							<RichTextRenderer content={block.content ?? ""} />
+						) : (
+							<>
+								<div className="mb-4 flex items-center justify-between">
+									{showTitle ? (
+										<h3 className="text-lg font-medium">{displayTitle}</h3>
+									) : (
+										<div />
+									)}
+									<BlockSettings
+										title={block.title}
+										icon={block.icon}
+										showTitle={block.show_title !== false}
+										showBorder={block.show_border !== false}
+										viewType={block.view_type}
+										onUpdate={(input) => handleBlockUpdate(block.id, input)}
+										fields={colConfig?.fields}
+										visibleIds={colConfig?.visibleIds}
+										orderedIds={colConfig?.orderedIds}
+										onColumnChange={colConfig?.handleColumnChange}
+									/>
+								</div>
+								<BlockRenderer
+									databaseId={block.database_id!}
+									databaseName={block.database?.name ?? ""}
+									viewType={block.view_type}
+									onColumnConfigReady={(config) =>
+										handleColumnConfigReady(block.id, config)
+									}
+								/>
+							</>
+						)}
+					</div>
+				);
+			})}
 		</div>
 	);
 }

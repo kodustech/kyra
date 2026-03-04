@@ -85,6 +85,10 @@ export interface Block {
 	database_id: string | null;
 	view_type: ViewType;
 	content: string | null;
+	title: string | null;
+	icon: string | null;
+	show_title: boolean;
+	show_border: boolean;
 	position: number;
 	created_at: string;
 	updated_at: string;
@@ -174,7 +178,12 @@ export const reorderFieldsSchema = z.object({
 	fieldIds: z.array(z.string().uuid()).min(1),
 });
 
+export const bulkCreateFieldsSchema = z.object({
+	fields: z.array(createFieldSchema).min(1),
+});
+
 export type CreateFieldInput = z.infer<typeof createFieldSchema>;
+export type BulkCreateFieldsInput = z.infer<typeof bulkCreateFieldsSchema>;
 export type UpdateFieldInput = z.infer<typeof updateFieldSchema>;
 export type ReorderFieldsInput = z.infer<typeof reorderFieldsSchema>;
 
@@ -251,6 +260,10 @@ export const updateBlockSchema = z.object({
 	database_id: z.string().uuid().optional(),
 	view_type: viewTypeSchema.optional(),
 	content: z.string().optional(),
+	title: z.string().nullable().optional(),
+	icon: z.string().nullable().optional(),
+	show_title: z.boolean().optional(),
+	show_border: z.boolean().optional(),
 });
 
 export const reorderBlocksSchema = z.object({

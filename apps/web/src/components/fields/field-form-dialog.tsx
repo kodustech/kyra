@@ -230,19 +230,13 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, on
 													setKanbanOptions(next);
 												}}
 											>
-												<SelectTrigger className="w-24">
-													<div className="flex items-center gap-1.5">
-														<span className={`h-3 w-3 rounded-full ${COLOR_DOT[opt.color] || "bg-gray-400"}`} />
-														<span className="text-xs">{opt.color}</span>
-													</div>
+												<SelectTrigger className="w-10">
+													<span className={`h-3 w-3 rounded-full ${COLOR_DOT[opt.color] || "bg-gray-400"}`} />
 												</SelectTrigger>
 												<SelectContent position="popper">
 													{STATUS_COLORS.map((c) => (
 														<SelectItem key={c.id} value={c.id}>
-															<div className="flex items-center gap-1.5">
-																<span className={`h-3 w-3 rounded-full ${COLOR_DOT[c.id]}`} />
-																{c.label}
-															</div>
+															<span className={`h-3 w-3 rounded-full ${COLOR_DOT[c.id]}`} />
 														</SelectItem>
 													))}
 												</SelectContent>

@@ -36,6 +36,16 @@ blocks.post("/", async (c) => {
 
 	const nextPosition = existing && existing.length > 0 ? existing[0].position + 1 : 0;
 
+	let blockTitle: string | null = null;
+	if (body.view_type !== "richtext") {
+		const { data: db } = await supabase
+			.from("databases")
+			.select("name")
+			.eq("id", body.database_id)
+			.single();
+		blockTitle = db?.name ?? null;
+	}
+
 	const insertPayload =
 		body.view_type === "richtext"
 			? {
@@ -48,6 +58,7 @@ blocks.post("/", async (c) => {
 					page_id: pageId,
 					database_id: body.database_id,
 					view_type: body.view_type,
+					title: blockTitle,
 					position: nextPosition,
 				};
 

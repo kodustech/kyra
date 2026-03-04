@@ -1,5 +1,5 @@
-import { createFieldSchema, reorderFieldsSchema, updateFieldSchema } from "@kyra/shared";
-import type { CreateFieldInput } from "@kyra/shared";
+import { bulkCreateFieldsSchema, createFieldSchema, reorderFieldsSchema, updateFieldSchema } from "@kyra/shared";
+import type { BulkCreateFieldsInput, CreateFieldInput } from "@kyra/shared";
 import { Hono } from "hono";
 import { supabase } from "../lib/supabase";
 import { parseBody } from "../lib/validate";
@@ -78,6 +78,75 @@ fields.post("/", async (c) => {
 		})
 		.select()
 		.single();
+
+	if (error) return c.json({ error: error.message }, 500);
+	return c.json(data, 201);
+});
+
+// POST /bulk — Bulk create fields
+fields.post("/bulk", async (c) => {
+	const databaseId = c.req.param("databaseId");
+	const parsed = await parseBody(c, bulkCreateFieldsSchema);
+	if ("error" in parsed) return parsed.error;
+
+	const { fields: inputs } = parsed.data as BulkCreateFieldsInput;
+
+	// Enforce max 1 kanban_status (batch + existing)
+	const kanbanInBatch = inputs.filter((f) => f.type === "kanban_status").length;
+	if (kanbanInBatch > 1) {
+		return c.json({ error: "Only one Kanban Status field is allowed per database" }, 400);
+	}
+
+	if (kanbanInBatch === 1) {
+		const { data: existingKanban } = await supabase
+			.from("fields")
+			.select("id")
+			.eq("database_id", databaseId)
+			.eq("type", "kanban_status")
+			.limit(1);
+
+		if (existingKanban && existingKanban.length > 0) {
+			return c.json({ error: "Only one Kanban Status field is allowed per database" }, 400);
+		}
+	}
+
+	// Get start position
+	const { data: existing } = await supabase
+		.from("fields")
+		.select("position")
+		.eq("database_id", databaseId)
+		.order("position", { ascending: false })
+		.limit(1);
+
+	const startPosition = existing && existing.length > 0 ? existing[0].position + 1 : 0;
+
+	// Build rows
+	const rows = inputs.map((input, index) => {
+		const settings =
+			input.type === "kanban_status" && !input.settings
+				? {
+						options: [
+							{ id: "todo", label: "To-do", color: "gray", icon: "circle" },
+							{ id: "in-progress", label: "In Progress", color: "blue", icon: "loader" },
+							{ id: "done", label: "Done", color: "green", icon: "circle-check" },
+						],
+					}
+				: (input.settings ?? null);
+
+		return {
+			name: input.name,
+			type: input.type,
+			required: input.type === "kanban_status" ? false : input.required,
+			mask: input.mask ?? null,
+			options: input.options ?? null,
+			settings,
+			highlight: input.highlight ?? false,
+			database_id: databaseId,
+			position: startPosition + index,
+		};
+	});
+
+	const { data, error } = await supabase.from("fields").insert(rows).select();
 
 	if (error) return c.json({ error: error.message }, 500);
 	return c.json(data, 201);

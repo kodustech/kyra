@@ -9,8 +9,12 @@ import {
 	type DragStartEvent,
 	type DragOverEvent,
 } from "@dnd-kit/core";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RecordDialog } from "@/components/records/record-dialog";
 import type { Record as DbRecord, Field } from "@kyra/shared";
+import { Plus } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { KanbanCard } from "./kanban-card";
 import { KanbanColumn } from "./kanban-column";
@@ -23,7 +27,19 @@ interface KanbanBoardProps {
 	onCreateRecord: (data: { [fieldId: string]: unknown }) => Promise<DbRecord>;
 	onUpdateRecord: (recordId: string, data: { [fieldId: string]: unknown }) => Promise<DbRecord>;
 	onDeleteRecord: (recordId: string) => Promise<void>;
+	onAddStatus?: (label: string, color: string) => Promise<void>;
 }
+
+const ADD_STATUS_COLORS = [
+	{ id: "gray", cls: "bg-gray-400" },
+	{ id: "red", cls: "bg-red-500" },
+	{ id: "orange", cls: "bg-orange-500" },
+	{ id: "yellow", cls: "bg-yellow-500" },
+	{ id: "green", cls: "bg-green-500" },
+	{ id: "blue", cls: "bg-blue-500" },
+	{ id: "purple", cls: "bg-purple-500" },
+	{ id: "pink", cls: "bg-pink-500" },
+];
 
 export function KanbanBoard({
 	fields,
@@ -32,9 +48,13 @@ export function KanbanBoard({
 	readOnly,
 	onCreateRecord,
 	onUpdateRecord,
+	onAddStatus,
 }: KanbanBoardProps) {
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [editingRecord, setEditingRecord] = useState<DbRecord | null>(null);
+	const [addOpen, setAddOpen] = useState(false);
+	const [newLabel, setNewLabel] = useState("");
+	const [newColor, setNewColor] = useState("gray");
 
 	const statusOptions = statusField.settings?.options ?? [];
 	const firstStatusId = statusOptions[0]?.id ?? "";
@@ -152,6 +172,48 @@ export function KanbanBoard({
 							onCardClick={handleCardClick}
 						/>
 					))}
+					{!readOnly && onAddStatus && (
+						<div className="flex shrink-0 items-start pt-1">
+							<Popover open={addOpen} onOpenChange={setAddOpen}>
+								<PopoverTrigger asChild>
+									<Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+										<Plus className="h-4 w-4" />
+									</Button>
+								</PopoverTrigger>
+								<PopoverContent className="w-56 space-y-3" align="start">
+									<Input
+										placeholder="Column name"
+										value={newLabel}
+										onChange={(e) => setNewLabel(e.target.value)}
+										autoFocus
+									/>
+									<div className="flex flex-wrap gap-2">
+										{ADD_STATUS_COLORS.map((c) => (
+											<button
+												key={c.id}
+												type="button"
+												className={`h-5 w-5 rounded-full ${c.cls} ${newColor === c.id ? "ring-2 ring-primary ring-offset-2" : ""}`}
+												onClick={() => setNewColor(c.id)}
+											/>
+										))}
+									</div>
+									<Button
+										size="sm"
+										className="w-full"
+										disabled={!newLabel.trim()}
+										onClick={async () => {
+											await onAddStatus(newLabel.trim(), newColor);
+											setNewLabel("");
+											setNewColor("gray");
+											setAddOpen(false);
+										}}
+									>
+										Add
+									</Button>
+								</PopoverContent>
+							</Popover>
+						</div>
+					)}
 				</div>
 
 				<DragOverlay>

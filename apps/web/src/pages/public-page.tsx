@@ -52,20 +52,27 @@ export function PublicPage() {
 			<h1 className="mb-8 text-3xl font-bold">{page.name}</h1>
 
 			<div className="space-y-8">
-				{page.blocks.map((block) => (
+				{page.blocks.map((block) => {
+					const showBorder = block.view_type !== "richtext" && block.show_border !== false;
+					const showTitle = block.view_type !== "richtext" && block.show_title !== false;
+					const displayTitle = block.title ?? block.database?.name;
+
+					return (
 					<div
 						key={block.id}
 						className={
 							block.view_type === "richtext"
 								? ""
-								: "rounded-lg border border-border p-6"
+								: showBorder
+									? "rounded-lg border border-border p-6"
+									: "p-6"
 						}
 					>
 						{block.view_type === "richtext" ? (
 							<RichTextRenderer content={block.content ?? ""} />
 						) : (
 							<>
-								<h2 className="mb-4 text-lg font-medium">{block.database?.name}</h2>
+								{showTitle && <h2 className="mb-4 text-lg font-medium">{displayTitle}</h2>}
 
 								{block.fields.length === 0 ? (
 									<p className="text-sm text-muted-foreground">No fields configured</p>
@@ -114,7 +121,8 @@ export function PublicPage() {
 							</>
 						)}
 					</div>
-				))}
+					);
+				})}
 			</div>
 
 			<Toaster />
