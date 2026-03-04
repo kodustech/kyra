@@ -16,7 +16,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import type { Database as DatabaseType, Page as PageType } from "@kyra/shared";
 import { PageIcon } from "@/components/ui/icon-picker";
-import { ChevronDown, Database, GripVertical, Plus } from "lucide-react";
+import { ChevronDown, Database, GripVertical, Pin, PinOff, Plus } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router";
 
@@ -27,6 +27,8 @@ interface SidebarProps {
 	onCreateDatabase: () => void;
 	onReorderPages: (pageIds: string[]) => void;
 	onReorderDatabases: (databaseIds: string[]) => void;
+	pinned: boolean;
+	onPinChange: (pinned: boolean) => void;
 }
 
 export function Sidebar({
@@ -36,6 +38,8 @@ export function Sidebar({
 	onCreateDatabase,
 	onReorderPages,
 	onReorderDatabases,
+	pinned,
+	onPinChange,
 }: SidebarProps) {
 	const location = useLocation();
 	const [pagesOpen, setPagesOpen] = useState(true);
@@ -72,6 +76,18 @@ export function Sidebar({
 
 	return (
 		<aside className="flex w-64 flex-col border-r border-sidebar-border bg-sidebar">
+			{/* Pin/Unpin button */}
+			<div className="flex justify-end px-3 pt-2">
+				<button
+					type="button"
+					onClick={() => onPinChange(!pinned)}
+					className="inline-flex h-7 w-7 items-center justify-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+					title={pinned ? "Unpin sidebar" : "Pin sidebar"}
+				>
+					{pinned ? <Pin className="h-4 w-4" /> : <PinOff className="h-4 w-4" />}
+				</button>
+			</div>
+
 			{/* Pages section */}
 			<SectionHeader
 				label="Pages"

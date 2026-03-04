@@ -99,6 +99,29 @@
 	}
 }
 
+/* ─── Scrollbar (dark mode) ───────────────────────────────────────────────── */
+.dark * {
+	scrollbar-color: oklch(0.35 0 0) transparent;
+}
+
+.dark *::-webkit-scrollbar {
+	height: 8px;
+	width: 8px;
+}
+
+.dark *::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.dark *::-webkit-scrollbar-thumb {
+	background: oklch(0.35 0 0);
+	border-radius: 4px;
+}
+
+.dark *::-webkit-scrollbar-thumb:hover {
+	background: oklch(0.45 0 0);
+}
+
 /* ─── Tiptap Editor ───────────────────────────────────────────────────────── */
 .tiptap-editor .tiptap {
 	padding: 0.75rem 1rem;
