@@ -41,7 +41,7 @@ export function BlockFormDialog({ open, onOpenChange, onSubmit }: BlockFormDialo
 		try {
 			const payload: CreateBlockInput = isRichText
 				? { view_type: "richtext" }
-				: { database_id: databaseId, view_type: viewType as "form" | "table" };
+				: { database_id: databaseId, view_type: viewType as "form" | "table" | "kanban" };
 
 			await onSubmit(payload);
 			setDatabaseId("");
@@ -72,6 +72,7 @@ export function BlockFormDialog({ open, onOpenChange, onSubmit }: BlockFormDialo
 								<SelectContent>
 									<SelectItem value="form">Form</SelectItem>
 									<SelectItem value="table">Table</SelectItem>
+									<SelectItem value="kanban">Kanban</SelectItem>
 									<SelectItem value="richtext">Rich Text</SelectItem>
 								</SelectContent>
 							</Select>

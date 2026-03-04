@@ -8,7 +8,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { useFields } from "@/hooks/use-fields";
-import type { Field, FieldType } from "@kyra/shared";
+import type { Field, FieldType, KanbanStatusOption } from "@kyra/shared";
 import { Columns3, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -26,14 +26,18 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 	const [deleteField, setDeleteField] = useState<Field | null>(null);
 	const [deleting, setDeleting] = useState(false);
 
+	const hasKanbanStatus = fields.some((f) => f.type === "kanban_status");
+
 	async function handleCreate(data: {
 		name: string;
 		type: FieldType;
 		required: boolean;
 		mask: string | null;
 		options: string[] | null;
+		settings?: { options: KanbanStatusOption[] } | null;
+		highlight?: boolean;
 	}) {
-		await create(data);
+		await create({ ...data, highlight: data.highlight ?? false });
 		toast.success("Field added");
 	}
 
@@ -43,9 +47,11 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 		required: boolean;
 		mask: string | null;
 		options: string[] | null;
+		settings?: { options: KanbanStatusOption[] } | null;
+		highlight?: boolean;
 	}) {
 		if (!editField) return;
-		await update(editField.id, data);
+		await update(editField.id, { ...data, highlight: data.highlight ?? false });
 		toast.success("Field updated");
 		setEditField(null);
 	}
@@ -105,12 +111,13 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 				/>
 			)}
 
-			<FieldFormDialog open={showAdd} onOpenChange={setShowAdd} onSubmit={handleCreate} />
+			<FieldFormDialog open={showAdd} onOpenChange={setShowAdd} hasKanbanStatus={hasKanbanStatus} onSubmit={handleCreate} />
 
 			<FieldFormDialog
 				field={editField}
 				open={!!editField}
 				onOpenChange={(o) => !o && setEditField(null)}
+				hasKanbanStatus={hasKanbanStatus}
 				onSubmit={handleUpdate}
 			/>
 

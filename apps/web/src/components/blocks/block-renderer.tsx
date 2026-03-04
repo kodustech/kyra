@@ -8,6 +8,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { ColumnSettings } from "@/components/records/column-settings";
+import { KanbanBoard } from "@/components/kanban/kanban-board";
 import { DataTable } from "@/components/records/data-table";
 import { DynamicForm } from "@/components/records/dynamic-form";
 import { RecordDialog } from "@/components/records/record-dialog";
@@ -108,7 +109,7 @@ export function BlockRenderer({
 
 	// Listen for record changes from other blocks targeting the same database
 	useEffect(() => {
-		if (viewType !== "table") return;
+		if (viewType !== "table" && viewType !== "kanban") return;
 
 		function handleRecordChange(e: Event) {
 			const detail = (e as CustomEvent).detail;
@@ -244,6 +245,50 @@ export function BlockRenderer({
 					</DialogContent>
 				</Dialog>
 			</>
+		);
+	}
+
+	// ─── Kanban view ──────────────────────────────────────────────────────────
+
+	if (viewType === "kanban") {
+		if (recordsLoading) {
+			return <p className="py-4 text-center text-sm text-muted-foreground">Loading records...</p>;
+		}
+
+		const statusField = fields.find((f) => f.type === "kanban_status");
+		if (!statusField) {
+			return (
+				<p className="py-4 text-center text-sm text-muted-foreground">
+					Add a Kanban Status field to this database
+				</p>
+			);
+		}
+
+		return (
+			<KanbanBoard
+				fields={fields}
+				records={records}
+				statusField={statusField}
+				readOnly={readOnly}
+				onCreateRecord={async (data) => {
+					const record = await create(data);
+					toast.success("Record created");
+					window.dispatchEvent(
+						new CustomEvent(RECORD_CHANGE_EVENT, { detail: { databaseId } }),
+					);
+					return record;
+				}}
+				onUpdateRecord={async (recordId, data) => {
+					const existing = records.find((r) => r.id === recordId);
+					const mergedData = existing ? { ...existing.data, ...data } : data;
+					const record = await update(recordId, mergedData);
+					return record;
+				}}
+				onDeleteRecord={async (recordId) => {
+					await remove(recordId);
+					toast.success("Record deleted");
+				}}
+			/>
 		);
 	}
 

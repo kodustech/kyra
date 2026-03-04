@@ -1,9 +1,11 @@
 import { RichTextRenderer } from "@/components/blocks/rich-text-renderer";
+import { KanbanBoard } from "@/components/kanban/kanban-board";
 import { DataTable } from "@/components/records/data-table";
 import { DynamicForm } from "@/components/records/dynamic-form";
 import { Toaster } from "@/components/ui/sonner";
 import { usePublicPage } from "@/hooks/use-public-page";
 import { api } from "@/lib/api";
+import type { Record as DbRecord } from "@kyra/shared";
 import { useState } from "react";
 import { useParams } from "react-router";
 import { toast } from "sonner";
@@ -67,6 +69,26 @@ export function PublicPage() {
 
 								{block.fields.length === 0 ? (
 									<p className="text-sm text-muted-foreground">No fields configured</p>
+								) : block.view_type === "kanban" ? (
+									(() => {
+										const statusField = block.fields.find((f) => f.type === "kanban_status");
+										if (!statusField) return <p className="text-sm text-muted-foreground">No kanban status field configured</p>;
+										return (
+											<KanbanBoard
+												fields={block.fields}
+												records={block.records}
+												statusField={statusField}
+												readOnly
+												onCreateRecord={async () => ({} as DbRecord)}
+												onUpdateRecord={async (recordId, data) => {
+													const updated = await api.patch<DbRecord>(`/p/${slug}/records/${recordId}`, { data });
+													refetch();
+													return updated;
+												}}
+												onDeleteRecord={async () => {}}
+											/>
+										);
+									})()
 								) : block.view_type === "table" ? (
 									<DataTable
 										fields={block.fields}

@@ -4,6 +4,7 @@ export {
 	type ViewType,
 	FIELD_TYPES,
 	type FieldType,
+	type KanbanStatusOption,
 	type Database,
 	type Field,
 	type Record,

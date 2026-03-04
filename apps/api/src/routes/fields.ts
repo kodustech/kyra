@@ -27,6 +27,20 @@ fields.post("/", async (c) => {
 
 	const body = parsed.data as CreateFieldInput;
 
+	// Enforce max 1 kanban_status per database
+	if (body.type === "kanban_status") {
+		const { data: existingKanban } = await supabase
+			.from("fields")
+			.select("id")
+			.eq("database_id", databaseId)
+			.eq("type", "kanban_status")
+			.limit(1);
+
+		if (existingKanban && existingKanban.length > 0) {
+			return c.json({ error: "Only one Kanban Status field is allowed per database" }, 400);
+		}
+	}
+
 	// Get next position
 	const { data: existing } = await supabase
 		.from("fields")
@@ -37,14 +51,28 @@ fields.post("/", async (c) => {
 
 	const nextPosition = existing && existing.length > 0 ? existing[0].position + 1 : 0;
 
+	// Default settings for kanban_status
+	const settings =
+		body.type === "kanban_status" && !body.settings
+			? {
+					options: [
+						{ id: "todo", label: "To-do", color: "gray", icon: "circle" },
+						{ id: "in-progress", label: "In Progress", color: "blue", icon: "loader" },
+						{ id: "done", label: "Done", color: "green", icon: "circle-check" },
+					],
+				}
+			: (body.settings ?? null);
+
 	const { data, error } = await supabase
 		.from("fields")
 		.insert({
 			name: body.name,
 			type: body.type,
-			required: body.required,
+			required: body.type === "kanban_status" ? false : body.required,
 			mask: body.mask ?? null,
 			options: body.options ?? null,
+			settings,
+			highlight: body.highlight ?? false,
 			database_id: databaseId,
 			position: nextPosition,
 		})

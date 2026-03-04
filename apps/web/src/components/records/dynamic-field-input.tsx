@@ -20,6 +20,37 @@ export function DynamicFieldInput({ field, value, onChange }: DynamicFieldInputP
 	const strVal = value == null ? "" : String(value);
 
 	switch (field.type) {
+		case "kanban_status":
+			return (
+				<Select value={strVal} onValueChange={onChange}>
+					<SelectTrigger>
+						<SelectValue placeholder={`Select ${field.name}`} />
+					</SelectTrigger>
+					<SelectContent>
+						{(field.settings?.options || []).map((opt) => (
+							<SelectItem key={opt.id} value={opt.id}>
+								<div className="flex items-center gap-1.5">
+									<span
+										className={`h-2.5 w-2.5 rounded-full ${
+											{
+												gray: "bg-gray-400",
+												red: "bg-red-500",
+												orange: "bg-orange-500",
+												yellow: "bg-yellow-500",
+												green: "bg-green-500",
+												blue: "bg-blue-500",
+												purple: "bg-purple-500",
+												pink: "bg-pink-500",
+											}[opt.color] || "bg-gray-400"
+										}`}
+									/>
+									{opt.label}
+								</div>
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+			);
 		case "text":
 			return (
 				<Input

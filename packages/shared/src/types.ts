@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // ─── View Types ─────────────────────────────────────────────────────────────────
 
-export const VIEW_TYPES = ["form", "table", "richtext"] as const;
+export const VIEW_TYPES = ["form", "table", "richtext", "kanban"] as const;
 
 export type ViewType = (typeof VIEW_TYPES)[number];
 
@@ -18,9 +18,19 @@ export const FIELD_TYPES = [
 	"boolean",
 	"url",
 	"textarea",
+	"kanban_status",
 ] as const;
 
 export type FieldType = (typeof FIELD_TYPES)[number];
+
+// ─── Kanban Status ──────────────────────────────────────────────────────────────
+
+export interface KanbanStatusOption {
+	id: string;
+	label: string;
+	color: string;
+	icon: string | null;
+}
 
 // ─── Domain Types ───────────────────────────────────────────────────────────────
 
@@ -41,6 +51,8 @@ export interface Field {
 	required: boolean;
 	mask: string | null;
 	options: string[] | null;
+	settings: { options: KanbanStatusOption[] } | null;
+	highlight: boolean;
 	position: number;
 	created_at: string;
 	updated_at: string;
@@ -111,6 +123,13 @@ export type ReorderDatabasesInput = z.infer<typeof reorderDatabasesSchema>;
 
 export const fieldTypeSchema = z.enum(FIELD_TYPES);
 
+export const kanbanStatusOptionSchema = z.object({
+	id: z.string().min(1),
+	label: z.string().min(1),
+	color: z.string().min(1),
+	icon: z.string().nullable(),
+});
+
 export const createFieldSchema = z
 	.object({
 		name: z.string().min(1, "Name is required").max(255),
@@ -118,6 +137,8 @@ export const createFieldSchema = z
 		required: z.boolean().default(false),
 		mask: z.string().max(255).nullable().optional(),
 		options: z.array(z.string()).nullable().optional(),
+		settings: z.object({ options: z.array(kanbanStatusOptionSchema) }).nullable().optional(),
+		highlight: z.boolean().default(false),
 	})
 	.refine(
 		(data) => {
@@ -136,6 +157,8 @@ export const updateFieldSchema = z
 		required: z.boolean().optional(),
 		mask: z.string().max(255).nullable().optional(),
 		options: z.array(z.string()).nullable().optional(),
+		settings: z.object({ options: z.array(kanbanStatusOptionSchema) }).nullable().optional(),
+		highlight: z.boolean().optional(),
 	})
 	.refine(
 		(data) => {
@@ -218,6 +241,10 @@ export const createBlockSchema = z.discriminatedUnion("view_type", [
 		view_type: z.literal("richtext"),
 		content: z.string().optional(),
 	}),
+	z.object({
+		view_type: z.literal("kanban"),
+		database_id: z.string().uuid("Invalid database ID"),
+	}),
 ]);
 
 export const updateBlockSchema = z.object({
@@ -270,6 +297,14 @@ export function buildRecordValidator(fields: Field[]) {
 			case "select":
 				if (field.options && field.options.length > 0) {
 					fieldSchema = z.enum(field.options as [string, ...string[]]);
+				} else {
+					fieldSchema = z.string();
+				}
+				break;
+			case "kanban_status":
+				if (field.settings?.options && field.settings.options.length > 0) {
+					const ids = field.settings.options.map((o) => o.id) as [string, ...string[]];
+					fieldSchema = z.enum(ids);
 				} else {
 					fieldSchema = z.string();
 				}
