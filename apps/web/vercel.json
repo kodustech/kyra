@@ -1,7 +1,7 @@
 {
 	"framework": "vite",
 	"installCommand": "cd ../.. && bun install",
-	"buildCommand": "cd ../.. && turbo build --filter=@kyra/web",
+	"buildCommand": "cd ../.. && turbo build --filter=@kyra/web && bun build apps/api/src/app.ts --outfile apps/web/api/_app.mjs --target browser --format esm",
 	"outputDirectory": "dist",
 	"rewrites": [
 		{ "source": "/api/(.*)", "destination": "/api" },
