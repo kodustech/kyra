@@ -1,7 +1,15 @@
 import { buildRecordValidator } from "@kyra/shared";
 import type { Field } from "@kyra/shared";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { supabase } from "../lib/supabase";
+import { db } from "../db";
+import {
+	blocks as blocksTable,
+	databases as databasesTable,
+	fields as fieldsTable,
+	pages as pagesTable,
+	records as recordsTable,
+} from "../db/schema";
 
 export const publicRoutes = new Hono();
 
@@ -10,49 +18,52 @@ publicRoutes.get("/:slug", async (c) => {
 	const slug = c.req.param("slug");
 
 	// Get the page
-	const { data: page, error: pageError } = await supabase
-		.from("pages")
-		.select("*")
-		.eq("slug", slug)
-		.eq("published", true)
-		.single();
+	const [page] = await db
+		.select()
+		.from(pagesTable)
+		.where(and(eq(pagesTable.slug, slug), eq(pagesTable.published, true)));
 
-	if (pageError || !page) {
+	if (!page) {
 		return c.json({ error: "Page not found" }, 404);
 	}
 
 	// Get blocks with their databases
-	const { data: blocks, error: blocksError } = await supabase
-		.from("blocks")
-		.select("*, database:databases(*)")
-		.eq("page_id", page.id)
-		.order("position", { ascending: true });
-
-	if (blocksError) return c.json({ error: blocksError.message }, 500);
+	const blockRows = await db
+		.select({
+			block: blocksTable,
+			database: databasesTable,
+		})
+		.from(blocksTable)
+		.leftJoin(databasesTable, eq(blocksTable.databaseId, databasesTable.id))
+		.where(eq(blocksTable.pageId, page.id))
+		.orderBy(asc(blocksTable.position));
 
 	// For each block, get fields and records (skip for richtext blocks)
 	const blocksWithData = await Promise.all(
-		(blocks || []).map(async (block) => {
-			if (block.view_type === "richtext") {
+		blockRows.map(async (row) => {
+			const block = { ...row.block, database: row.database };
+
+			if (block.viewType === "richtext") {
 				return { ...block, fields: [], records: [] };
 			}
 
-			const { data: fields } = await supabase
-				.from("fields")
-				.select("*")
-				.eq("database_id", block.database_id)
-				.order("position", { ascending: true });
-
-			const { data: records } = await supabase
-				.from("records")
-				.select("*")
-				.eq("database_id", block.database_id)
-				.order("created_at", { ascending: false });
+			const [fieldsData, recordsData] = await Promise.all([
+				db
+					.select()
+					.from(fieldsTable)
+					.where(eq(fieldsTable.databaseId, block.databaseId!))
+					.orderBy(asc(fieldsTable.position)),
+				db
+					.select()
+					.from(recordsTable)
+					.where(eq(recordsTable.databaseId, block.databaseId!))
+					.orderBy(desc(recordsTable.createdAt)),
+			]);
 
 			return {
 				...block,
-				fields: fields || [],
-				records: records || [],
+				fields: fieldsData,
+				records: recordsData,
 			};
 		}),
 	);
@@ -66,12 +77,10 @@ publicRoutes.patch("/:slug/records/:recordId", async (c) => {
 	const recordId = c.req.param("recordId");
 
 	// Verify page is published
-	const { data: page } = await supabase
-		.from("pages")
-		.select("id")
-		.eq("slug", slug)
-		.eq("published", true)
-		.single();
+	const [page] = await db
+		.select({ id: pagesTable.id })
+		.from(pagesTable)
+		.where(and(eq(pagesTable.slug, slug), eq(pagesTable.published, true)));
 
 	if (!page) {
 		return c.json({ error: "Page not found" }, 404);
@@ -83,40 +92,35 @@ publicRoutes.patch("/:slug/records/:recordId", async (c) => {
 	}
 
 	// Get existing record
-	const { data: record, error: recordError } = await supabase
-		.from("records")
-		.select("*")
-		.eq("id", recordId)
-		.single();
+	const [record] = await db
+		.select()
+		.from(recordsTable)
+		.where(eq(recordsTable.id, recordId));
 
-	if (recordError || !record) {
+	if (!record) {
 		return c.json({ error: "Record not found" }, 404);
 	}
 
 	// Verify the record's database belongs to a block on this page
-	const { data: block } = await supabase
-		.from("blocks")
-		.select("id")
-		.eq("page_id", page.id)
-		.eq("database_id", record.database_id)
-		.limit(1)
-		.single();
+	const [block] = await db
+		.select({ id: blocksTable.id })
+		.from(blocksTable)
+		.where(and(eq(blocksTable.pageId, page.id), eq(blocksTable.databaseId, record.databaseId)))
+		.limit(1);
 
 	if (!block) {
 		return c.json({ error: "Record does not belong to this page" }, 403);
 	}
 
 	// Merge data
-	const mergedData = { ...record.data, ...body.data };
+	const mergedData = { ...(record.data as Record<string, unknown>), ...body.data };
 
-	const { data: updated, error } = await supabase
-		.from("records")
-		.update({ data: mergedData })
-		.eq("id", recordId)
-		.select()
-		.single();
+	const [updated] = await db
+		.update(recordsTable)
+		.set({ data: mergedData, updatedAt: new Date() })
+		.where(eq(recordsTable.id, recordId))
+		.returning();
 
-	if (error) return c.json({ error: error.message }, 500);
 	return c.json(updated);
 });
 
@@ -126,56 +130,48 @@ publicRoutes.post("/:slug/submit/:blockId", async (c) => {
 	const blockId = c.req.param("blockId");
 
 	// Verify page is published
-	const { data: page } = await supabase
-		.from("pages")
-		.select("id")
-		.eq("slug", slug)
-		.eq("published", true)
-		.single();
+	const [page] = await db
+		.select({ id: pagesTable.id })
+		.from(pagesTable)
+		.where(and(eq(pagesTable.slug, slug), eq(pagesTable.published, true)));
 
 	if (!page) {
 		return c.json({ error: "Page not found" }, 404);
 	}
 
 	// Get block and verify it belongs to this page
-	const { data: block } = await supabase
-		.from("blocks")
-		.select("*")
-		.eq("id", blockId)
-		.eq("page_id", page.id)
-		.single();
+	const [block] = await db
+		.select()
+		.from(blocksTable)
+		.where(and(eq(blocksTable.id, blockId), eq(blocksTable.pageId, page.id)));
 
 	if (!block) {
 		return c.json({ error: "Block not found" }, 404);
 	}
 
-	if (block.view_type === "richtext") {
+	if (block.viewType === "richtext") {
 		return c.json({ error: "Rich text blocks do not accept submissions" }, 400);
 	}
 
 	// Get fields for validation
-	const { data: fields, error: fieldsError } = await supabase
-		.from("fields")
-		.select("*")
-		.eq("database_id", block.database_id)
-		.order("position", { ascending: true });
-
-	if (fieldsError) return c.json({ error: fieldsError.message }, 500);
+	const fieldsData = await db
+		.select()
+		.from(fieldsTable)
+		.where(eq(fieldsTable.databaseId, block.databaseId!))
+		.orderBy(asc(fieldsTable.position));
 
 	const body = await c.req.json();
-	const validator = buildRecordValidator((fields || []) as Field[]);
+	const validator = buildRecordValidator(fieldsData as Field[]);
 	const result = validator.safeParse(body.data);
 
 	if (!result.success) {
 		return c.json({ error: "Validation failed", details: result.error.issues }, 400);
 	}
 
-	const { data, error } = await supabase
-		.from("records")
-		.insert({ database_id: block.database_id, data: result.data })
-		.select()
-		.single();
+	const [data] = await db
+		.insert(recordsTable)
+		.values({ databaseId: block.databaseId!, data: result.data as Record<string, unknown> })
+		.returning();
 
-	if (error) return c.json({ error: error.message }, 500);
 	return c.json(data, 201);
 });

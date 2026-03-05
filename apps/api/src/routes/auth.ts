@@ -10,9 +10,11 @@ import {
 	type UserRole,
 } from "@kyra/shared";
 import crypto from "node:crypto";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { type AppEnv, authMiddleware, comparePassword, hashPassword, requireRole, signToken } from "../lib/auth";
-import { supabase } from "../lib/supabase";
+import { db } from "../db";
+import { users, invites } from "../db/schema";
 import { parseBody } from "../lib/validate";
 
 export const auth = new Hono<AppEnv>();
@@ -21,14 +23,22 @@ export const auth = new Hono<AppEnv>();
 
 // GET /setup/status — Check if setup is needed
 auth.get("/setup/status", async (c) => {
-	const { count } = await supabase.from("users").select("id", { count: "exact", head: true }).is("deleted_at", null);
-	return c.json({ needsSetup: (count ?? 0) === 0 });
+	const [row] = await db
+		.select({ count: sql<number>`count(*)::int` })
+		.from(users)
+		.where(isNull(users.deletedAt));
+
+	return c.json({ needsSetup: (row?.count ?? 0) === 0 });
 });
 
 // POST /setup — Create first user (owner)
 auth.post("/setup", async (c) => {
-	const { count } = await supabase.from("users").select("id", { count: "exact", head: true }).is("deleted_at", null);
-	if ((count ?? 0) > 0) {
+	const [row] = await db
+		.select({ count: sql<number>`count(*)::int` })
+		.from(users)
+		.where(isNull(users.deletedAt));
+
+	if ((row?.count ?? 0) > 0) {
 		return c.json({ error: "Setup already completed" }, 400);
 	}
 
@@ -36,15 +46,18 @@ auth.post("/setup", async (c) => {
 	if ("error" in parsed) return parsed.error;
 
 	const { name, email, password, color } = parsed.data;
-	const password_hash = await hashPassword(password);
+	const passwordHash = await hashPassword(password);
 
-	const { data: user, error } = await supabase
-		.from("users")
-		.insert({ name, email, password_hash, role: "owner", color })
-		.select("id, name, email, role, color")
-		.single();
-
-	if (error) return c.json({ error: error.message }, 500);
+	const [user] = await db
+		.insert(users)
+		.values({ name, email, passwordHash, role: "owner", color })
+		.returning({
+			id: users.id,
+			name: users.name,
+			email: users.email,
+			role: users.role,
+			color: users.color,
+		});
 
 	const token = signToken(user);
 	return c.json({ user, token }, 201);
@@ -58,24 +71,29 @@ auth.post("/login", async (c) => {
 
 	const { email, password } = parsed.data;
 
-	const { data: user, error } = await supabase
-		.from("users")
-		.select("id, name, email, role, color, password_hash")
-		.eq("email", email)
-		.is("deleted_at", null)
-		.single();
+	const [user] = await db
+		.select({
+			id: users.id,
+			name: users.name,
+			email: users.email,
+			role: users.role,
+			color: users.color,
+			passwordHash: users.passwordHash,
+		})
+		.from(users)
+		.where(and(eq(users.email, email), isNull(users.deletedAt)));
 
-	if (error || !user) {
+	if (!user) {
 		return c.json({ error: "Invalid email or password" }, 401);
 	}
 
-	const valid = await comparePassword(password, user.password_hash);
+	const valid = await comparePassword(password, user.passwordHash);
 	if (!valid) {
 		return c.json({ error: "Invalid email or password" }, 401);
 	}
 
 	const token = signToken(user);
-	const { password_hash: _, ...safeUser } = user;
+	const { passwordHash: _, ...safeUser } = user;
 	return c.json({ user: safeUser, token });
 });
 
@@ -91,23 +109,28 @@ auth.patch("/me", authMiddleware, async (c) => {
 	const parsed = await parseBody(c, updateProfileSchema);
 	if ("error" in parsed) return parsed.error;
 
-	const updates: Record<string, unknown> = {};
+	const updates: Record<string, unknown> = { updatedAt: new Date() };
 	if (parsed.data.name) updates.name = parsed.data.name;
 	if (parsed.data.color) updates.color = parsed.data.color;
-	if (parsed.data.password) updates.password_hash = await hashPassword(parsed.data.password);
+	if (parsed.data.password) updates.passwordHash = await hashPassword(parsed.data.password);
 
-	if (Object.keys(updates).length === 0) {
+	if (Object.keys(updates).length === 1) {
+		// Only updatedAt, nothing to update
 		return c.json(user);
 	}
 
-	const { data, error } = await supabase
-		.from("users")
-		.update(updates)
-		.eq("id", user.id)
-		.select("id, name, email, role, color")
-		.single();
+	const [data] = await db
+		.update(users)
+		.set(updates)
+		.where(eq(users.id, user.id))
+		.returning({
+			id: users.id,
+			name: users.name,
+			email: users.email,
+			role: users.role,
+			color: users.color,
+		});
 
-	if (error) return c.json({ error: error.message }, 500);
 	return c.json(data);
 });
 
@@ -126,46 +149,39 @@ auth.post("/invites", authMiddleware, requireRole("owner", "admin"), async (c) =
 	}
 
 	// Check if email already used
-	const { data: existing } = await supabase
-		.from("users")
-		.select("id")
-		.eq("email", email)
-		.is("deleted_at", null)
-		.single();
+	const [existing] = await db
+		.select({ id: users.id })
+		.from(users)
+		.where(and(eq(users.email, email), isNull(users.deletedAt)));
 
 	if (existing) {
 		return c.json({ error: "User with this email already exists" }, 409);
 	}
 
 	const token = crypto.randomUUID();
-	const expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+	const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-	const { data: invite, error } = await supabase
-		.from("invites")
-		.insert({ email, name, role, token, expires_at, invited_by: user.id })
-		.select()
-		.single();
+	const [invite] = await db
+		.insert(invites)
+		.values({ email, name, role, token, expiresAt, invitedBy: user.id })
+		.returning();
 
-	if (error) return c.json({ error: error.message }, 500);
 	return c.json(invite, 201);
 });
 
 auth.get("/invites", authMiddleware, requireRole("owner", "admin"), async (c) => {
-	const { data, error } = await supabase
-		.from("invites")
-		.select("*")
-		.is("accepted_at", null)
-		.order("created_at", { ascending: false });
+	const data = await db
+		.select()
+		.from(invites)
+		.where(isNull(invites.acceptedAt))
+		.orderBy(desc(invites.createdAt));
 
-	if (error) return c.json({ error: error.message }, 500);
 	return c.json(data);
 });
 
 auth.delete("/invites/:id", authMiddleware, requireRole("owner", "admin"), async (c) => {
 	const id = c.req.param("id");
-	const { error } = await supabase.from("invites").delete().eq("id", id);
-
-	if (error) return c.json({ error: error.message }, 500);
+	await db.delete(invites).where(eq(invites.id, id));
 	return c.json({ ok: true });
 });
 
@@ -173,21 +189,27 @@ auth.delete("/invites/:id", authMiddleware, requireRole("owner", "admin"), async
 
 auth.get("/invite/:token", async (c) => {
 	const token = c.req.param("token");
-	const { data: invite, error } = await supabase
-		.from("invites")
-		.select("id, email, name, role, expires_at, accepted_at")
-		.eq("token", token)
-		.single();
+	const [invite] = await db
+		.select({
+			id: invites.id,
+			email: invites.email,
+			name: invites.name,
+			role: invites.role,
+			expiresAt: invites.expiresAt,
+			acceptedAt: invites.acceptedAt,
+		})
+		.from(invites)
+		.where(eq(invites.token, token));
 
-	if (error || !invite) {
+	if (!invite) {
 		return c.json({ error: "Invite not found" }, 404);
 	}
 
-	if (invite.accepted_at) {
+	if (invite.acceptedAt) {
 		return c.json({ error: "Invite already accepted" }, 400);
 	}
 
-	if (new Date(invite.expires_at) < new Date()) {
+	if (new Date(invite.expiresAt) < new Date()) {
 		return c.json({ error: "Invite expired" }, 400);
 	}
 
@@ -201,50 +223,57 @@ auth.post("/invite/:token/accept", async (c) => {
 
 	const { password, color } = parsed.data;
 
-	const { data: invite, error: inviteErr } = await supabase
-		.from("invites")
-		.select("*")
-		.eq("token", token)
-		.single();
+	const [invite] = await db
+		.select()
+		.from(invites)
+		.where(eq(invites.token, token));
 
-	if (inviteErr || !invite) {
+	if (!invite) {
 		return c.json({ error: "Invite not found" }, 404);
 	}
 
-	if (invite.accepted_at) {
+	if (invite.acceptedAt) {
 		return c.json({ error: "Invite already accepted" }, 400);
 	}
 
-	if (new Date(invite.expires_at) < new Date()) {
+	if (new Date(invite.expiresAt) < new Date()) {
 		return c.json({ error: "Invite expired" }, 400);
 	}
 
-	const password_hash = await hashPassword(password);
+	const passwordHash = await hashPassword(password);
 
-	const { data: user, error: userErr } = await supabase
-		.from("users")
-		.insert({
-			name: invite.name,
-			email: invite.email,
-			password_hash,
-			role: invite.role,
-			color,
-		})
-		.select("id, name, email, role, color")
-		.single();
+	try {
+		const [user] = await db
+			.insert(users)
+			.values({
+				name: invite.name,
+				email: invite.email,
+				passwordHash,
+				role: invite.role,
+				color,
+			})
+			.returning({
+				id: users.id,
+				name: users.name,
+				email: users.email,
+				role: users.role,
+				color: users.color,
+			});
 
-	if (userErr) {
-		if (userErr.code === "23505") {
+		// Mark invite as accepted
+		await db
+			.update(invites)
+			.set({ acceptedAt: new Date() })
+			.where(eq(invites.id, invite.id));
+
+		const jwtToken = signToken(user);
+		return c.json({ user, token: jwtToken }, 201);
+	} catch (err: any) {
+		if (err.code === "23505") {
 			return c.json({ error: "User with this email already exists" }, 409);
 		}
-		return c.json({ error: userErr.message }, 500);
+		return c.json({ error: err.message }, 500);
 	}
-
-	// Mark invite as accepted
-	await supabase.from("invites").update({ accepted_at: new Date().toISOString() }).eq("id", invite.id);
-
-	const jwtToken = signToken(user);
-	return c.json({ user, token: jwtToken }, 201);
 });
 
 // ─── User Management ────────────────────────────────────────────────────────────
@@ -252,19 +281,26 @@ auth.post("/invite/:token/accept", async (c) => {
 auth.get("/users", authMiddleware, requireRole("owner", "admin"), async (c) => {
 	const user = c.get("user");
 
-	let query = supabase
-		.from("users")
-		.select("id, name, email, role, color, created_at")
-		.is("deleted_at", null)
-		.order("created_at", { ascending: true });
+	const conditions = [isNull(users.deletedAt)];
 
 	// Admin can only see editors and viewers
 	if (user.role === "admin") {
-		query = query.in("role", ["editor", "viewer"]);
+		conditions.push(inArray(users.role, ["editor", "viewer"]));
 	}
 
-	const { data, error } = await query;
-	if (error) return c.json({ error: error.message }, 500);
+	const data = await db
+		.select({
+			id: users.id,
+			name: users.name,
+			email: users.email,
+			role: users.role,
+			color: users.color,
+			createdAt: users.createdAt,
+		})
+		.from(users)
+		.where(and(...conditions))
+		.orderBy(asc(users.createdAt));
+
 	return c.json(data);
 });
 
@@ -275,14 +311,12 @@ auth.patch("/users/:id", authMiddleware, requireRole("owner", "admin"), async (c
 	if ("error" in parsed) return parsed.error;
 
 	// Get target user
-	const { data: target, error: targetErr } = await supabase
-		.from("users")
-		.select("id, role")
-		.eq("id", targetId)
-		.is("deleted_at", null)
-		.single();
+	const [target] = await db
+		.select({ id: users.id, role: users.role })
+		.from(users)
+		.where(and(eq(users.id, targetId), isNull(users.deletedAt)));
 
-	if (targetErr || !target) {
+	if (!target) {
 		return c.json({ error: "User not found" }, 404);
 	}
 
@@ -294,14 +328,19 @@ auth.patch("/users/:id", authMiddleware, requireRole("owner", "admin"), async (c
 		return c.json({ error: "Cannot assign this role" }, 403);
 	}
 
-	const { data, error } = await supabase
-		.from("users")
-		.update(parsed.data)
-		.eq("id", targetId)
-		.select("id, name, email, role, color, created_at")
-		.single();
+	const [data] = await db
+		.update(users)
+		.set({ ...parsed.data, updatedAt: new Date() })
+		.where(eq(users.id, targetId))
+		.returning({
+			id: users.id,
+			name: users.name,
+			email: users.email,
+			role: users.role,
+			color: users.color,
+			createdAt: users.createdAt,
+		});
 
-	if (error) return c.json({ error: error.message }, 500);
 	return c.json(data);
 });
 
@@ -313,14 +352,12 @@ auth.delete("/users/:id", authMiddleware, requireRole("owner", "admin"), async (
 		return c.json({ error: "Cannot delete yourself" }, 400);
 	}
 
-	const { data: target, error: targetErr } = await supabase
-		.from("users")
-		.select("id, role")
-		.eq("id", targetId)
-		.is("deleted_at", null)
-		.single();
+	const [target] = await db
+		.select({ id: users.id, role: users.role })
+		.from(users)
+		.where(and(eq(users.id, targetId), isNull(users.deletedAt)));
 
-	if (targetErr || !target) {
+	if (!target) {
 		return c.json({ error: "User not found" }, 404);
 	}
 
@@ -329,12 +366,11 @@ auth.delete("/users/:id", authMiddleware, requireRole("owner", "admin"), async (
 	}
 
 	// Soft-delete
-	const { error } = await supabase
-		.from("users")
-		.update({ deleted_at: new Date().toISOString() })
-		.eq("id", targetId);
+	await db
+		.update(users)
+		.set({ deletedAt: new Date() })
+		.where(eq(users.id, targetId));
 
-	if (error) return c.json({ error: error.message }, 500);
 	return c.json({ ok: true });
 });
 
@@ -351,20 +387,18 @@ auth.post("/transfer-ownership", authMiddleware, requireRole("owner"), async (c)
 		return c.json({ error: "You are already the owner" }, 400);
 	}
 
-	const { data: target, error: targetErr } = await supabase
-		.from("users")
-		.select("id")
-		.eq("id", newOwnerId)
-		.is("deleted_at", null)
-		.single();
+	const [target] = await db
+		.select({ id: users.id })
+		.from(users)
+		.where(and(eq(users.id, newOwnerId), isNull(users.deletedAt)));
 
-	if (targetErr || !target) {
+	if (!target) {
 		return c.json({ error: "User not found" }, 404);
 	}
 
 	// Transfer: new user → owner, old owner → admin
-	await supabase.from("users").update({ role: "owner" }).eq("id", newOwnerId);
-	await supabase.from("users").update({ role: "admin" }).eq("id", owner.id);
+	await db.update(users).set({ role: "owner" }).where(eq(users.id, newOwnerId));
+	await db.update(users).set({ role: "admin" }).where(eq(users.id, owner.id));
 
 	return c.json({ ok: true });
 });

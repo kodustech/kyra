@@ -1,8 +1,10 @@
 import { bulkCreateFieldsSchema, createFieldSchema, reorderFieldsSchema, updateFieldSchema } from "@kyra/shared";
 import type { BulkCreateFieldsInput, CreateFieldInput } from "@kyra/shared";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { type AppEnv, requireRole } from "../lib/auth";
-import { supabase } from "../lib/supabase";
+import { db } from "../db";
+import { fields as fieldsTable } from "../db/schema";
 import { parseBody } from "../lib/validate";
 
 export const fields = new Hono<AppEnv>();
@@ -10,13 +12,12 @@ export const fields = new Hono<AppEnv>();
 // GET / — List fields for a database
 fields.get("/", async (c) => {
 	const databaseId = c.req.param("databaseId");
-	const { data, error } = await supabase
-		.from("fields")
-		.select("*")
-		.eq("database_id", databaseId)
-		.order("position", { ascending: true });
+	const data = await db
+		.select()
+		.from(fieldsTable)
+		.where(eq(fieldsTable.databaseId, databaseId))
+		.orderBy(asc(fieldsTable.position));
 
-	if (error) return c.json({ error: error.message }, 500);
 	return c.json(data);
 });
 
@@ -30,27 +31,26 @@ fields.post("/", requireRole("owner", "admin"), async (c) => {
 
 	// Enforce max 1 kanban_status per database
 	if (body.type === "kanban_status") {
-		const { data: existingKanban } = await supabase
-			.from("fields")
-			.select("id")
-			.eq("database_id", databaseId)
-			.eq("type", "kanban_status")
+		const existing = await db
+			.select({ id: fieldsTable.id })
+			.from(fieldsTable)
+			.where(and(eq(fieldsTable.databaseId, databaseId), eq(fieldsTable.type, "kanban_status")))
 			.limit(1);
 
-		if (existingKanban && existingKanban.length > 0) {
+		if (existing.length > 0) {
 			return c.json({ error: "Only one Kanban Status field is allowed per database" }, 400);
 		}
 	}
 
 	// Get next position
-	const { data: existing } = await supabase
-		.from("fields")
-		.select("position")
-		.eq("database_id", databaseId)
-		.order("position", { ascending: false })
+	const [last] = await db
+		.select({ position: fieldsTable.position })
+		.from(fieldsTable)
+		.where(eq(fieldsTable.databaseId, databaseId))
+		.orderBy(desc(fieldsTable.position))
 		.limit(1);
 
-	const nextPosition = existing && existing.length > 0 ? existing[0].position + 1 : 0;
+	const nextPosition = last ? last.position + 1 : 0;
 
 	// Default settings for kanban_status
 	const settings =
@@ -64,9 +64,9 @@ fields.post("/", requireRole("owner", "admin"), async (c) => {
 				}
 			: (body.settings ?? null);
 
-	const { data, error } = await supabase
-		.from("fields")
-		.insert({
+	const [data] = await db
+		.insert(fieldsTable)
+		.values({
 			name: body.name,
 			type: body.type,
 			required: body.type === "kanban_status" ? false : body.required,
@@ -74,13 +74,11 @@ fields.post("/", requireRole("owner", "admin"), async (c) => {
 			options: body.options ?? null,
 			settings,
 			highlight: body.highlight ?? false,
-			database_id: databaseId,
+			databaseId,
 			position: nextPosition,
 		})
-		.select()
-		.single();
+		.returning();
 
-	if (error) return c.json({ error: error.message }, 500);
 	return c.json(data, 201);
 });
 
@@ -99,27 +97,26 @@ fields.post("/bulk", requireRole("owner", "admin"), async (c) => {
 	}
 
 	if (kanbanInBatch === 1) {
-		const { data: existingKanban } = await supabase
-			.from("fields")
-			.select("id")
-			.eq("database_id", databaseId)
-			.eq("type", "kanban_status")
+		const existing = await db
+			.select({ id: fieldsTable.id })
+			.from(fieldsTable)
+			.where(and(eq(fieldsTable.databaseId, databaseId), eq(fieldsTable.type, "kanban_status")))
 			.limit(1);
 
-		if (existingKanban && existingKanban.length > 0) {
+		if (existing.length > 0) {
 			return c.json({ error: "Only one Kanban Status field is allowed per database" }, 400);
 		}
 	}
 
 	// Get start position
-	const { data: existing } = await supabase
-		.from("fields")
-		.select("position")
-		.eq("database_id", databaseId)
-		.order("position", { ascending: false })
+	const [last] = await db
+		.select({ position: fieldsTable.position })
+		.from(fieldsTable)
+		.where(eq(fieldsTable.databaseId, databaseId))
+		.orderBy(desc(fieldsTable.position))
 		.limit(1);
 
-	const startPosition = existing && existing.length > 0 ? existing[0].position + 1 : 0;
+	const startPosition = last ? last.position + 1 : 0;
 
 	// Build rows
 	const rows = inputs.map((input, index) => {
@@ -142,14 +139,13 @@ fields.post("/bulk", requireRole("owner", "admin"), async (c) => {
 			options: input.options ?? null,
 			settings,
 			highlight: input.highlight ?? false,
-			database_id: databaseId,
+			databaseId,
 			position: startPosition + index,
 		};
 	});
 
-	const { data, error } = await supabase.from("fields").insert(rows).select();
+	const data = await db.insert(fieldsTable).values(rows).returning();
 
-	if (error) return c.json({ error: error.message }, 500);
 	return c.json(data, 201);
 });
 
@@ -159,23 +155,20 @@ fields.patch("/:fieldId", requireRole("owner", "admin"), async (c) => {
 	const parsed = await parseBody(c, updateFieldSchema);
 	if ("error" in parsed) return parsed.error;
 
-	const { data, error } = await supabase
-		.from("fields")
-		.update(parsed.data)
-		.eq("id", fieldId)
-		.select()
-		.single();
+	const [data] = await db
+		.update(fieldsTable)
+		.set({ ...parsed.data, updatedAt: new Date() })
+		.where(eq(fieldsTable.id, fieldId))
+		.returning();
 
-	if (error) return c.json({ error: error.message }, 500);
+	if (!data) return c.json({ error: "Field not found" }, 404);
 	return c.json(data);
 });
 
 // DELETE /:fieldId — Delete field
 fields.delete("/:fieldId", requireRole("owner", "admin"), async (c) => {
 	const fieldId = c.req.param("fieldId");
-	const { error } = await supabase.from("fields").delete().eq("id", fieldId);
-
-	if (error) return c.json({ error: error.message }, 500);
+	await db.delete(fieldsTable).where(eq(fieldsTable.id, fieldId));
 	return c.json({ ok: true });
 });
 
@@ -184,15 +177,13 @@ fields.put("/reorder", requireRole("owner", "admin"), async (c) => {
 	const parsed = await parseBody(c, reorderFieldsSchema);
 	if ("error" in parsed) return parsed.error;
 
-	const { fieldIds } = parsed.data as { fieldIds: string[] };
+	const { fieldIds } = parsed.data;
 
-	const updates = fieldIds.map((id, index) =>
-		supabase.from("fields").update({ position: index }).eq("id", id),
+	await Promise.all(
+		fieldIds.map((id, index) =>
+			db.update(fieldsTable).set({ position: index }).where(eq(fieldsTable.id, id)),
+		),
 	);
 
-	const results = await Promise.all(updates);
-	const failed = results.find((r) => r.error);
-
-	if (failed?.error) return c.json({ error: failed.error.message }, 500);
 	return c.json({ ok: true });
 });

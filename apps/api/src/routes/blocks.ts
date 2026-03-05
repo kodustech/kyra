@@ -1,21 +1,35 @@
 import { createBlockSchema, reorderBlocksSchema, updateBlockSchema } from "@kyra/shared";
+import { asc, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { type AppEnv, requireRole } from "../lib/auth";
-import { supabase } from "../lib/supabase";
+import { db } from "../db";
+import { blocks as blocksTable, databases as databasesTable } from "../db/schema";
 import { parseBody } from "../lib/validate";
 
 export const blocks = new Hono<AppEnv>();
 
+// Helper: select block with joined database
+async function selectBlocksWithDatabase(condition: ReturnType<typeof eq>) {
+	const rows = await db
+		.select({
+			block: blocksTable,
+			database: databasesTable,
+		})
+		.from(blocksTable)
+		.leftJoin(databasesTable, eq(blocksTable.databaseId, databasesTable.id))
+		.where(condition)
+		.orderBy(asc(blocksTable.position));
+
+	return rows.map((r) => ({
+		...r.block,
+		database: r.database,
+	}));
+}
+
 // GET / — List blocks for a page
 blocks.get("/", async (c) => {
 	const pageId = c.req.param("pageId");
-	const { data, error } = await supabase
-		.from("blocks")
-		.select("*, database:databases(*)")
-		.eq("page_id", pageId)
-		.order("position", { ascending: true });
-
-	if (error) return c.json({ error: error.message }, 500);
+	const data = await selectBlocksWithDatabase(eq(blocksTable.pageId, pageId));
 	return c.json(data);
 });
 
@@ -28,48 +42,44 @@ blocks.post("/", requireRole("owner", "admin", "editor"), async (c) => {
 	const body = parsed.data;
 
 	// Get next position
-	const { data: existing } = await supabase
-		.from("blocks")
-		.select("position")
-		.eq("page_id", pageId)
-		.order("position", { ascending: false })
+	const [last] = await db
+		.select({ position: blocksTable.position })
+		.from(blocksTable)
+		.where(eq(blocksTable.pageId, pageId))
+		.orderBy(desc(blocksTable.position))
 		.limit(1);
 
-	const nextPosition = existing && existing.length > 0 ? existing[0].position + 1 : 0;
+	const nextPosition = last ? last.position + 1 : 0;
 
 	let blockTitle: string | null = null;
 	if (body.view_type !== "richtext") {
-		const { data: db } = await supabase
-			.from("databases")
-			.select("name")
-			.eq("id", body.database_id)
-			.single();
-		blockTitle = db?.name ?? null;
+		const [dbRow] = await db
+			.select({ name: databasesTable.name })
+			.from(databasesTable)
+			.where(eq(databasesTable.id, body.database_id));
+		blockTitle = dbRow?.name ?? null;
 	}
 
 	const insertPayload =
 		body.view_type === "richtext"
 			? {
-					page_id: pageId,
-					view_type: body.view_type,
+					pageId,
+					viewType: body.view_type as "richtext",
 					content: body.content ?? "",
 					position: nextPosition,
 				}
 			: {
-					page_id: pageId,
-					database_id: body.database_id,
-					view_type: body.view_type,
+					pageId,
+					databaseId: body.database_id,
+					viewType: body.view_type as "form" | "table" | "kanban",
 					title: blockTitle,
 					position: nextPosition,
 				};
 
-	const { data, error } = await supabase
-		.from("blocks")
-		.insert(insertPayload)
-		.select("*, database:databases(*)")
-		.single();
+	const [inserted] = await db.insert(blocksTable).values(insertPayload).returning();
 
-	if (error) return c.json({ error: error.message }, 500);
+	// Return with joined database
+	const [data] = await selectBlocksWithDatabase(eq(blocksTable.id, inserted.id));
 	return c.json(data, 201);
 });
 
@@ -79,23 +89,28 @@ blocks.patch("/:blockId", requireRole("owner", "admin", "editor"), async (c) => 
 	const parsed = await parseBody(c, updateBlockSchema);
 	if ("error" in parsed) return parsed.error;
 
-	const { data, error } = await supabase
-		.from("blocks")
-		.update(parsed.data)
-		.eq("id", blockId)
-		.select("*, database:databases(*)")
-		.single();
+	// Map snake_case input to camelCase columns
+	const input = parsed.data;
+	const updates: Record<string, unknown> = { updatedAt: new Date() };
+	if (input.database_id !== undefined) updates.databaseId = input.database_id;
+	if (input.view_type !== undefined) updates.viewType = input.view_type;
+	if (input.content !== undefined) updates.content = input.content;
+	if (input.title !== undefined) updates.title = input.title;
+	if (input.icon !== undefined) updates.icon = input.icon;
+	if (input.show_title !== undefined) updates.showTitle = input.show_title;
+	if (input.show_border !== undefined) updates.showBorder = input.show_border;
 
-	if (error) return c.json({ error: error.message }, 500);
+	await db.update(blocksTable).set(updates).where(eq(blocksTable.id, blockId));
+
+	const [data] = await selectBlocksWithDatabase(eq(blocksTable.id, blockId));
+	if (!data) return c.json({ error: "Block not found" }, 404);
 	return c.json(data);
 });
 
 // DELETE /:blockId — Delete block
 blocks.delete("/:blockId", requireRole("owner", "admin", "editor"), async (c) => {
 	const blockId = c.req.param("blockId");
-	const { error } = await supabase.from("blocks").delete().eq("id", blockId);
-
-	if (error) return c.json({ error: error.message }, 500);
+	await db.delete(blocksTable).where(eq(blocksTable.id, blockId));
 	return c.json({ ok: true });
 });
 
@@ -104,15 +119,13 @@ blocks.put("/reorder", requireRole("owner", "admin", "editor"), async (c) => {
 	const parsed = await parseBody(c, reorderBlocksSchema);
 	if ("error" in parsed) return parsed.error;
 
-	const { blockIds } = parsed.data as { blockIds: string[] };
+	const { blockIds } = parsed.data;
 
-	const updates = blockIds.map((id, index) =>
-		supabase.from("blocks").update({ position: index }).eq("id", id),
+	await Promise.all(
+		blockIds.map((id, index) =>
+			db.update(blocksTable).set({ position: index }).where(eq(blocksTable.id, id)),
+		),
 	);
 
-	const results = await Promise.all(updates);
-	const failed = results.find((r) => r.error);
-
-	if (failed?.error) return c.json({ error: failed.error.message }, 500);
 	return c.json({ ok: true });
 });

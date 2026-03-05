@@ -9,9 +9,9 @@ if (!databaseUrl) {
 	process.exit(1);
 }
 
-const sql = postgres(databaseUrl, { ssl: "require" });
+const sql = postgres(databaseUrl);
 
-const migrationsDir = join(import.meta.dir, "..", "supabase", "migrations");
+const migrationsDir = join(import.meta.dir, "..", "apps", "api", "drizzle");
 
 async function ensureMigrationsTable() {
 	await sql`

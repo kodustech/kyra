@@ -1,10 +1,8 @@
 {
 	"$schema": "https://turbo.build/schema.json",
 	"globalEnv": [
-		"SUPABASE_URL",
-		"SUPABASE_ANON_KEY",
-		"SUPABASE_SERVICE_ROLE_KEY",
 		"DATABASE_URL",
+		"JWT_SECRET",
 		"API_URL"
 	],
 	"tasks": {

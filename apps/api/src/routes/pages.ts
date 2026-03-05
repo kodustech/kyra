@@ -1,20 +1,20 @@
 import { createPageSchema, reorderPagesSchema, updatePageSchema } from "@kyra/shared";
+import { asc, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { type AppEnv, requireRole } from "../lib/auth";
-import { supabase } from "../lib/supabase";
+import { db } from "../db";
+import { pages as pagesTable } from "../db/schema";
 import { parseBody } from "../lib/validate";
 
 export const pages = new Hono<AppEnv>();
 
 // GET / — List all pages
 pages.get("/", async (c) => {
-	const { data, error } = await supabase
-		.from("pages")
-		.select("*")
-		.order("position", { ascending: true })
-		.order("created_at", { ascending: false });
+	const data = await db
+		.select()
+		.from(pagesTable)
+		.orderBy(asc(pagesTable.position), desc(pagesTable.createdAt));
 
-	if (error) return c.json({ error: error.message }, 500);
 	return c.json(data);
 });
 
@@ -23,36 +23,35 @@ pages.post("/", requireRole("owner", "admin", "editor"), async (c) => {
 	const parsed = await parseBody(c, createPageSchema);
 	if ("error" in parsed) return parsed.error;
 
-	// Get next position
-	const { data: existing } = await supabase
-		.from("pages")
-		.select("position")
-		.order("position", { ascending: false })
+	const [last] = await db
+		.select({ position: pagesTable.position })
+		.from(pagesTable)
+		.orderBy(desc(pagesTable.position))
 		.limit(1);
 
-	const nextPosition = existing && existing.length > 0 ? existing[0].position + 1 : 0;
+	const nextPosition = last?.position != null ? last.position + 1 : 0;
 
-	const { data, error } = await supabase
-		.from("pages")
-		.insert({ ...parsed.data, position: nextPosition })
-		.select()
-		.single();
+	try {
+		const [data] = await db
+			.insert(pagesTable)
+			.values({ ...parsed.data, position: nextPosition })
+			.returning();
 
-	if (error) {
-		if (error.code === "23505") {
+		return c.json(data, 201);
+	} catch (err: any) {
+		if (err.code === "23505") {
 			return c.json({ error: "Slug already exists" }, 409);
 		}
-		return c.json({ error: error.message }, 500);
+		return c.json({ error: err.message }, 500);
 	}
-	return c.json(data, 201);
 });
 
 // GET /:id — Get page by id
 pages.get("/:id", async (c) => {
 	const id = c.req.param("id");
-	const { data, error } = await supabase.from("pages").select("*").eq("id", id).single();
+	const [data] = await db.select().from(pagesTable).where(eq(pagesTable.id, id));
 
-	if (error) return c.json({ error: error.message }, 404);
+	if (!data) return c.json({ error: "Page not found" }, 404);
 	return c.json(data);
 });
 
@@ -62,28 +61,27 @@ pages.patch("/:id", requireRole("owner", "admin", "editor"), async (c) => {
 	const parsed = await parseBody(c, updatePageSchema);
 	if ("error" in parsed) return parsed.error;
 
-	const { data, error } = await supabase
-		.from("pages")
-		.update(parsed.data)
-		.eq("id", id)
-		.select()
-		.single();
+	try {
+		const [data] = await db
+			.update(pagesTable)
+			.set({ ...parsed.data, updatedAt: new Date() })
+			.where(eq(pagesTable.id, id))
+			.returning();
 
-	if (error) {
-		if (error.code === "23505") {
+		if (!data) return c.json({ error: "Page not found" }, 404);
+		return c.json(data);
+	} catch (err: any) {
+		if (err.code === "23505") {
 			return c.json({ error: "Slug already exists" }, 409);
 		}
-		return c.json({ error: error.message }, 500);
+		return c.json({ error: err.message }, 500);
 	}
-	return c.json(data);
 });
 
 // DELETE /:id — Delete page
 pages.delete("/:id", requireRole("owner", "admin", "editor"), async (c) => {
 	const id = c.req.param("id");
-	const { error } = await supabase.from("pages").delete().eq("id", id);
-
-	if (error) return c.json({ error: error.message }, 500);
+	await db.delete(pagesTable).where(eq(pagesTable.id, id));
 	return c.json({ ok: true });
 });
 
@@ -92,15 +90,13 @@ pages.put("/reorder", requireRole("owner", "admin", "editor"), async (c) => {
 	const parsed = await parseBody(c, reorderPagesSchema);
 	if ("error" in parsed) return parsed.error;
 
-	const { pageIds } = parsed.data as { pageIds: string[] };
+	const { pageIds } = parsed.data;
 
-	const updates = pageIds.map((id, index) =>
-		supabase.from("pages").update({ position: index }).eq("id", id),
+	await Promise.all(
+		pageIds.map((id, index) =>
+			db.update(pagesTable).set({ position: index }).where(eq(pagesTable.id, id)),
+		),
 	);
 
-	const results = await Promise.all(updates);
-	const failed = results.find((r) => r.error);
-
-	if (failed?.error) return c.json({ error: failed.error.message }, 500);
 	return c.json({ ok: true });
 });

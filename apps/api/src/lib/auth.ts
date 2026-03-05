@@ -1,8 +1,10 @@
 import type { AuthUser, UserRole } from "@kyra/shared";
 import bcrypt from "bcryptjs";
+import { eq, and, isNull } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
 import jwt from "jsonwebtoken";
-import { supabase } from "./supabase";
+import { db } from "../db";
+import { users } from "../db/schema";
 
 const JWT_SECRET = process.env.JWT_SECRET || "kyra-dev-secret";
 const JWT_EXPIRES_IN = "7d";
@@ -58,14 +60,18 @@ export const authMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
 		return c.json({ error: "Invalid or expired token" }, 401);
 	}
 
-	const { data: user, error } = await supabase
-		.from("users")
-		.select("id, name, email, role, color")
-		.eq("id", payload.sub)
-		.is("deleted_at", null)
-		.single();
+	const [user] = await db
+		.select({
+			id: users.id,
+			name: users.name,
+			email: users.email,
+			role: users.role,
+			color: users.color,
+		})
+		.from(users)
+		.where(and(eq(users.id, payload.sub), isNull(users.deletedAt)));
 
-	if (error || !user) {
+	if (!user) {
 		return c.json({ error: "User not found" }, 401);
 	}
 
