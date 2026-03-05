@@ -1,6 +1,6 @@
 import { app } from "./_app.mjs";
 
-export const config = { runtime: "edge" };
+export const config = { runtime: "nodejs22.x" };
 
 export default function handler(request) {
 	const url = new URL(request.url);
