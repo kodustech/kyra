@@ -1,8 +1,10 @@
+import { Hono } from "hono";
 import { handle } from "@hono/node-server/vercel";
 import { app } from "./_app.mjs";
 
+const wrapper = new Hono();
+wrapper.route("/api", app);
+
 export const config = { runtime: "nodejs" };
 
-const handler = handle(app, "/api");
-
-export default handler;
+export default handle(wrapper);
