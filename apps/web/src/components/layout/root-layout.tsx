@@ -2,6 +2,7 @@ import { CreateDatabaseDialog } from "@/components/databases/create-database-dia
 import { CreatePageDialog } from "@/components/pages/create-page-dialog";
 import { useDatabases } from "@/hooks/use-databases";
 import { usePages } from "@/hooks/use-pages";
+import { Eye } from "lucide-react";
 import { useState } from "react";
 import { Outlet } from "react-router";
 import { Header } from "./header";
@@ -53,17 +54,25 @@ export function RootLayout() {
 				<Sidebar {...sidebarProps} />
 			) : (
 				<>
-					{/* Hover trigger zone */}
-					<div
-						className="fixed left-0 top-0 z-50 h-screen w-1.5"
-						onMouseEnter={() => setHovered(true)}
-					/>
+					{!hovered && (
+						<button
+							type="button"
+							onClick={() => setHovered(true)}
+							className="fixed bottom-4 left-4 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105"
+							title="Open menu"
+						>
+							<Eye className="h-5 w-5" />
+						</button>
+					)}
 					{hovered && (
 						<div
 							className="fixed inset-0 z-40"
-							onMouseLeave={() => setHovered(false)}
+							onClick={() => setHovered(false)}
 						>
-							<div className="h-screen w-64 shadow-xl">
+							<div
+								className="h-full w-64 shadow-xl"
+								onClick={(e) => e.stopPropagation()}
+							>
 								<Sidebar {...sidebarProps} />
 							</div>
 						</div>

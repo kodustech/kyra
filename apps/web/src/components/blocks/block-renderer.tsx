@@ -311,6 +311,11 @@ export function BlockRenderer({
 						settings: { options: [...existingOptions, newOption] },
 					});
 				}}
+				onReorderColumns={async (reordered) => {
+					await updateField(statusField.id, {
+						settings: { options: reordered },
+					});
+				}}
 			/>
 		);
 	}

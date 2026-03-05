@@ -9,11 +9,15 @@ import {
 	type DragStartEvent,
 	type DragOverEvent,
 } from "@dnd-kit/core";
+import {
+	SortableContext,
+	horizontalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RecordDialog } from "@/components/records/record-dialog";
-import type { Record as DbRecord, Field } from "@kyra/shared";
+import type { Record as DbRecord, Field, KanbanStatusOption } from "@kyra/shared";
 import { Plus } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { KanbanCard } from "./kanban-card";
@@ -28,6 +32,7 @@ interface KanbanBoardProps {
 	onUpdateRecord: (recordId: string, data: { [fieldId: string]: unknown }) => Promise<DbRecord>;
 	onDeleteRecord: (recordId: string) => Promise<void>;
 	onAddStatus?: (label: string, color: string) => Promise<void>;
+	onReorderColumns?: (reordered: KanbanStatusOption[]) => Promise<void>;
 }
 
 const ADD_STATUS_COLORS = [
@@ -49,8 +54,10 @@ export function KanbanBoard({
 	onCreateRecord,
 	onUpdateRecord,
 	onAddStatus,
+	onReorderColumns,
 }: KanbanBoardProps) {
 	const [activeId, setActiveId] = useState<string | null>(null);
+	const [activeType, setActiveType] = useState<"card" | "column" | null>(null);
 	const [editingRecord, setEditingRecord] = useState<DbRecord | null>(null);
 	const [addOpen, setAddOpen] = useState(false);
 	const [newLabel, setNewLabel] = useState("");
@@ -86,8 +93,12 @@ export function KanbanBoard({
 
 	const activeRecord = activeId ? records.find((r) => r.id === activeId) : null;
 
+	const columnIds = useMemo(() => statusOptions.map((opt) => `column-${opt.id}`), [statusOptions]);
+
 	const handleDragStart = useCallback((event: DragStartEvent) => {
-		setActiveId(event.active.id as string);
+		const id = event.active.id as string;
+		setActiveId(id);
+		setActiveType(id.startsWith("column-") ? "column" : "card");
 	}, []);
 
 	const handleDragOver = useCallback((_event: DragOverEvent) => {
@@ -96,19 +107,34 @@ export function KanbanBoard({
 
 	const handleDragEnd = useCallback(
 		async (event: DragEndEvent) => {
+			const dragType = activeType;
 			setActiveId(null);
+			setActiveType(null);
 			const { active, over } = event;
-			if (!over) return;
+			if (!over || active.id === over.id) return;
 
+			// Column reorder
+			if (dragType === "column" && onReorderColumns) {
+				const activeStatusId = (active.id as string).replace("column-", "");
+				const overStatusId = (over.id as string).replace("column-", "");
+				const oldIndex = statusOptions.findIndex((o) => o.id === activeStatusId);
+				const newIndex = statusOptions.findIndex((o) => o.id === overStatusId);
+				if (oldIndex === -1 || newIndex === -1) return;
+				const reordered = [...statusOptions];
+				const [moved] = reordered.splice(oldIndex, 1);
+				reordered.splice(newIndex, 0, moved);
+				await onReorderColumns(reordered);
+				return;
+			}
+
+			// Card drag between columns
 			const recordId = active.id as string;
 			let newStatusId: string | null = null;
 
-			// Check if dropped on a column
 			const overId = over.id as string;
 			if (overId.startsWith("column-")) {
 				newStatusId = overId.replace("column-", "");
 			} else {
-				// Dropped on another card — find which column that card belongs to
 				for (const [statusId, recs] of recordsByStatus) {
 					if (recs.some((r) => r.id === overId)) {
 						newStatusId = statusId;
@@ -119,7 +145,6 @@ export function KanbanBoard({
 
 			if (!newStatusId) return;
 
-			// Find current status of dragged record
 			const record = records.find((r) => r.id === recordId);
 			if (!record) return;
 			const currentStatus = record.data[statusField.id] as string | undefined;
@@ -128,7 +153,7 @@ export function KanbanBoard({
 
 			await onUpdateRecord(recordId, { [statusField.id]: newStatusId });
 		},
-		[recordsByStatus, records, statusField.id, onUpdateRecord],
+		[activeType, recordsByStatus, records, statusField.id, statusOptions, onUpdateRecord, onReorderColumns],
 	);
 
 	const handleQuickAdd = useCallback(
@@ -160,18 +185,20 @@ export function KanbanBoard({
 				onDragEnd={handleDragEnd}
 			>
 				<div className="flex gap-4 overflow-x-auto pb-4">
-					{statusOptions.map((opt) => (
-						<KanbanColumn
-							key={opt.id}
-							status={opt}
-							records={recordsByStatus.get(opt.id) ?? []}
-							fields={fields}
-							statusFieldId={statusField.id}
-							readOnly={readOnly}
-							onQuickAdd={(title) => handleQuickAdd(opt.id, title)}
-							onCardClick={handleCardClick}
-						/>
-					))}
+					<SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
+						{statusOptions.map((opt) => (
+							<KanbanColumn
+								key={opt.id}
+								status={opt}
+								records={recordsByStatus.get(opt.id) ?? []}
+								fields={fields}
+								statusFieldId={statusField.id}
+								readOnly={readOnly}
+								onQuickAdd={(title) => handleQuickAdd(opt.id, title)}
+								onCardClick={handleCardClick}
+							/>
+						))}
+					</SortableContext>
 					{!readOnly && onAddStatus && (
 						<div className="flex shrink-0 items-start pt-1">
 							<Popover open={addOpen} onOpenChange={setAddOpen}>

@@ -1,7 +1,9 @@
 import { useDroppable } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { Record as DbRecord, Field, KanbanStatusOption } from "@kyra/shared";
 import { PageIcon } from "@/components/ui/icon-picker";
+import { GripVertical } from "lucide-react";
 import { useState } from "react";
 import { KanbanCard, STATUS_COLOR_MAP } from "./kanban-card";
 
@@ -26,10 +28,27 @@ export function KanbanColumn({
 	const [quickAddValue, setQuickAddValue] = useState("");
 	const [adding, setAdding] = useState(false);
 
-	const { setNodeRef, isOver } = useDroppable({
+	const { setNodeRef: setDropRef, isOver } = useDroppable({
 		id: `column-${status.id}`,
 		data: { statusId: status.id },
 	});
+
+	const {
+		attributes,
+		listeners,
+		setNodeRef: setSortRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable({
+		id: `column-${status.id}`,
+	});
+
+	const style = {
+		transform: CSS.Transform.toString(transform),
+		transition,
+		opacity: isDragging ? 0.5 : 1,
+	};
 
 	const highlightFields = fields.filter((f) => f.highlight);
 	const recordIds = records.map((r) => r.id);
@@ -49,9 +68,17 @@ export function KanbanColumn({
 	}
 
 	return (
-		<div className="flex w-72 shrink-0 flex-col rounded-lg bg-muted/50">
+		<div ref={setSortRef} style={style} className="flex w-72 shrink-0 flex-col rounded-lg bg-muted/50">
 			{/* Header */}
-			<div className="flex items-center gap-2 px-3 py-2.5">
+			<div className="group/col flex items-center gap-2 px-3 py-2.5">
+				<button
+					type="button"
+					className="flex h-6 w-5 shrink-0 cursor-grab items-center justify-center text-transparent group-hover/col:text-muted-foreground"
+					{...attributes}
+					{...listeners}
+				>
+					<GripVertical className="h-3.5 w-3.5" />
+				</button>
 				<span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${accentColor}`}>
 					{status.icon && <PageIcon name={status.icon} className="mr-1 h-3 w-3" />}
 					{status.label}
@@ -61,7 +88,7 @@ export function KanbanColumn({
 
 			{/* Cards */}
 			<div
-				ref={setNodeRef}
+				ref={setDropRef}
 				className={`flex min-h-[2rem] flex-1 flex-col gap-2 px-2 pb-2 transition-colors ${
 					isOver ? "bg-muted/80 rounded-b-lg" : ""
 				}`}

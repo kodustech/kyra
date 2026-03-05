@@ -75,7 +75,7 @@ export function Sidebar({
 	}
 
 	return (
-		<aside className="flex w-64 flex-col border-r border-sidebar-border bg-sidebar">
+		<aside className="flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar">
 			{/* Pin/Unpin button */}
 			<div className="flex justify-end px-3 pt-2">
 				<button
