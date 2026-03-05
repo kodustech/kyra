@@ -50,7 +50,10 @@ export function KanbanColumn({
 		opacity: isDragging ? 0.5 : 1,
 	};
 
-	const highlightFields = fields.filter((f) => f.highlight);
+	const explicitHighlights = fields.filter((f) => f.highlight);
+	const highlightFields = explicitHighlights.length > 0
+		? explicitHighlights
+		: fields.filter((f) => f.type !== "kanban_status").slice(0, 1);
 	const recordIds = records.map((r) => r.id);
 
 	const accentColor = STATUS_COLOR_MAP[status.color] || STATUS_COLOR_MAP.gray;

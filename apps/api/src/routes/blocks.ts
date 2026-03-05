@@ -52,26 +52,26 @@ blocks.post("/", requireRole("owner", "admin", "editor"), async (c) => {
 	const nextPosition = last ? last.position + 1 : 0;
 
 	let blockTitle: string | null = null;
-	if (body.view_type !== "richtext") {
+	if (body.viewType !== "richtext") {
 		const [dbRow] = await db
 			.select({ name: databasesTable.name })
 			.from(databasesTable)
-			.where(eq(databasesTable.id, body.database_id));
+			.where(eq(databasesTable.id, body.databaseId));
 		blockTitle = dbRow?.name ?? null;
 	}
 
 	const insertPayload =
-		body.view_type === "richtext"
+		body.viewType === "richtext"
 			? {
 					pageId,
-					viewType: body.view_type as "richtext",
+					viewType: body.viewType as "richtext",
 					content: body.content ?? "",
 					position: nextPosition,
 				}
 			: {
 					pageId,
-					databaseId: body.database_id,
-					viewType: body.view_type as "form" | "table" | "kanban",
+					databaseId: body.databaseId,
+					viewType: body.viewType as "form" | "table" | "kanban",
 					title: blockTitle,
 					position: nextPosition,
 				};
@@ -89,18 +89,7 @@ blocks.patch("/:blockId", requireRole("owner", "admin", "editor"), async (c) => 
 	const parsed = await parseBody(c, updateBlockSchema);
 	if ("error" in parsed) return parsed.error;
 
-	// Map snake_case input to camelCase columns
-	const input = parsed.data;
-	const updates: Record<string, unknown> = { updatedAt: new Date() };
-	if (input.database_id !== undefined) updates.databaseId = input.database_id;
-	if (input.view_type !== undefined) updates.viewType = input.view_type;
-	if (input.content !== undefined) updates.content = input.content;
-	if (input.title !== undefined) updates.title = input.title;
-	if (input.icon !== undefined) updates.icon = input.icon;
-	if (input.show_title !== undefined) updates.showTitle = input.show_title;
-	if (input.show_border !== undefined) updates.showBorder = input.show_border;
-
-	await db.update(blocksTable).set(updates).where(eq(blocksTable.id, blockId));
+	await db.update(blocksTable).set({ ...parsed.data, updatedAt: new Date() }).where(eq(blocksTable.id, blockId));
 
 	const [data] = await selectBlocksWithDatabase(eq(blocksTable.id, blockId));
 	if (!data) return c.json({ error: "Block not found" }, 404);

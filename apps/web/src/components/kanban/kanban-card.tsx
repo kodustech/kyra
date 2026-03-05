@@ -33,10 +33,9 @@ export function KanbanCard({ record, highlightFields, onClick }: KanbanCardProps
 		opacity: isDragging ? 0.5 : 1,
 	};
 
-	// Find the first text field value as title
-	const titleValue = Object.values(record.data).find(
-		(v) => typeof v === "string" && v.trim(),
-	) as string | undefined;
+	// Use first highlight field as title, rest as badges
+	const [titleField, ...badgeFields] = highlightFields;
+	const titleValue = titleField ? record.data[titleField.id] : undefined;
 
 	return (
 		<div
@@ -59,12 +58,12 @@ export function KanbanCard({ record, highlightFields, onClick }: KanbanCardProps
 					<GripVertical className="h-4 w-4 text-muted-foreground" />
 				</button>
 				<div className="min-w-0 flex-1">
-					{titleValue && (
-						<p className="truncate text-sm font-medium">{titleValue}</p>
+					{titleValue != null && titleValue !== "" && (
+						<p className="truncate text-sm font-medium">{String(titleValue)}</p>
 					)}
-					{highlightFields.length > 0 && (
+					{badgeFields.length > 0 && (
 						<div className="mt-1.5 flex flex-wrap gap-1">
-							{highlightFields.map((field) => {
+							{badgeFields.map((field) => {
 								const val = record.data[field.id];
 								if (val == null || val === "") return null;
 

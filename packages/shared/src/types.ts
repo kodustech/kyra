@@ -11,9 +11,9 @@ export interface User {
 	email: string;
 	role: UserRole;
 	color: string;
-	deleted_at: string | null;
-	created_at: string;
-	updated_at: string;
+	deletedAt: string | null;
+	createdAt: string;
+	updatedAt: string;
 }
 
 export interface AuthUser {
@@ -30,10 +30,10 @@ export interface Invite {
 	name: string;
 	role: UserRole;
 	token: string;
-	expires_at: string;
-	accepted_at: string | null;
-	invited_by: string;
-	created_at: string;
+	expiresAt: string;
+	acceptedAt: string | null;
+	invitedBy: string;
+	createdAt: string;
 }
 
 // ─── Auth Zod Schemas ───────────────────────────────────────────────────────────
@@ -159,13 +159,13 @@ export interface Database {
 	name: string;
 	description: string | null;
 	position: number;
-	created_at: string;
-	updated_at: string;
+	createdAt: string;
+	updatedAt: string;
 }
 
 export interface Field {
 	id: string;
-	database_id: string;
+	databaseId: string;
 	name: string;
 	type: FieldType;
 	required: boolean;
@@ -174,16 +174,16 @@ export interface Field {
 	settings: { options: KanbanStatusOption[] } | null;
 	highlight: boolean;
 	position: number;
-	created_at: string;
-	updated_at: string;
+	createdAt: string;
+	updatedAt: string;
 }
 
 export interface Record {
 	id: string;
-	database_id: string;
+	databaseId: string;
 	data: { [fieldId: string]: unknown };
-	created_at: string;
-	updated_at: string;
+	createdAt: string;
+	updatedAt: string;
 }
 
 // ─── Pages & Blocks ────────────────────────────────────────────────────────────
@@ -195,23 +195,23 @@ export interface Page {
 	icon: string | null;
 	published: boolean;
 	position: number;
-	created_at: string;
-	updated_at: string;
+	createdAt: string;
+	updatedAt: string;
 }
 
 export interface Block {
 	id: string;
-	page_id: string;
-	database_id: string | null;
-	view_type: ViewType;
+	pageId: string;
+	databaseId: string | null;
+	viewType: ViewType;
 	content: string | null;
 	title: string | null;
 	icon: string | null;
-	show_title: boolean;
-	show_border: boolean;
+	showTitle: boolean;
+	showBorder: boolean;
 	position: number;
-	created_at: string;
-	updated_at: string;
+	createdAt: string;
+	updatedAt: string;
 }
 
 export interface BlockWithRelations extends Block {
@@ -357,33 +357,33 @@ export type ReorderPagesInput = z.infer<typeof reorderPagesSchema>;
 
 // ─── Zod Schemas: Blocks ───────────────────────────────────────────────────────
 
-export const createBlockSchema = z.discriminatedUnion("view_type", [
+export const createBlockSchema = z.discriminatedUnion("viewType", [
 	z.object({
-		view_type: z.literal("form"),
-		database_id: z.string().uuid("Invalid database ID"),
+		viewType: z.literal("form"),
+		databaseId: z.string().uuid("Invalid database ID"),
 	}),
 	z.object({
-		view_type: z.literal("table"),
-		database_id: z.string().uuid("Invalid database ID"),
+		viewType: z.literal("table"),
+		databaseId: z.string().uuid("Invalid database ID"),
 	}),
 	z.object({
-		view_type: z.literal("richtext"),
+		viewType: z.literal("richtext"),
 		content: z.string().optional(),
 	}),
 	z.object({
-		view_type: z.literal("kanban"),
-		database_id: z.string().uuid("Invalid database ID"),
+		viewType: z.literal("kanban"),
+		databaseId: z.string().uuid("Invalid database ID"),
 	}),
 ]);
 
 export const updateBlockSchema = z.object({
-	database_id: z.string().uuid().optional(),
-	view_type: viewTypeSchema.optional(),
+	databaseId: z.string().uuid().optional(),
+	viewType: viewTypeSchema.optional(),
 	content: z.string().optional(),
 	title: z.string().nullable().optional(),
 	icon: z.string().nullable().optional(),
-	show_title: z.boolean().optional(),
-	show_border: z.boolean().optional(),
+	showTitle: z.boolean().optional(),
+	showBorder: z.boolean().optional(),
 });
 
 export const reorderBlocksSchema = z.object({

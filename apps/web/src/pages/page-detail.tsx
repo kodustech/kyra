@@ -277,8 +277,8 @@ function PreviewView({ pageId }: { pageId: string }) {
 	return (
 		<div className="space-y-8">
 			{blocks.map((block) => {
-				const showBorder = block.view_type !== "richtext" && block.show_border !== false;
-				const showTitle = block.view_type !== "richtext" && block.show_title !== false;
+				const showBorder = block.viewType !== "richtext" && block.showBorder !== false;
+				const showTitle = block.viewType !== "richtext" && block.showTitle !== false;
 				const displayTitle = block.title ?? block.database?.name;
 				const colConfig = columnConfigs[block.id];
 
@@ -286,14 +286,14 @@ function PreviewView({ pageId }: { pageId: string }) {
 					<div
 						key={block.id}
 						className={`group/block relative ${
-							block.view_type === "richtext"
+							block.viewType === "richtext"
 								? ""
 								: showBorder
 									? "rounded-lg border border-border p-6"
 									: "p-6"
 						}`}
 					>
-						{block.view_type === "richtext" ? (
+						{block.viewType === "richtext" ? (
 							<RichTextRenderer content={block.content ?? ""} />
 						) : (
 							<>
@@ -305,9 +305,9 @@ function PreviewView({ pageId }: { pageId: string }) {
 									<BlockSettings
 										title={block.title}
 										icon={block.icon}
-										showTitle={block.show_title !== false}
-										showBorder={block.show_border !== false}
-										viewType={block.view_type}
+										showTitle={block.showTitle !== false}
+										showBorder={block.showBorder !== false}
+										viewType={block.viewType}
 										onUpdate={(input) => handleBlockUpdate(block.id, input)}
 										fields={colConfig?.fields}
 										visibleIds={colConfig?.visibleIds}
@@ -317,9 +317,9 @@ function PreviewView({ pageId }: { pageId: string }) {
 									</div>
 								</div>
 								<BlockRenderer
-									databaseId={block.database_id!}
+									databaseId={block.databaseId!}
 									databaseName={block.database?.name ?? ""}
-									viewType={block.view_type}
+									viewType={block.viewType}
 									onColumnConfigReady={(config) =>
 										handleColumnConfigReady(block.id, config)
 									}

@@ -24,7 +24,7 @@ interface InviteData {
 	email: string;
 	name: string;
 	role: string;
-	expires_at: string;
+	expiresAt: string;
 }
 
 export function AcceptInvitePage() {

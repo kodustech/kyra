@@ -102,7 +102,7 @@ export function BlockSettings({
 							id="show-title"
 							size="sm"
 							checked={showTitle}
-							onCheckedChange={(checked) => onUpdate({ show_title: !!checked })}
+							onCheckedChange={(checked) => onUpdate({ showTitle: !!checked })}
 						/>
 					</div>
 					<div className="flex items-center justify-between">
@@ -111,7 +111,7 @@ export function BlockSettings({
 							id="show-border"
 							size="sm"
 							checked={showBorder}
-							onCheckedChange={(checked) => onUpdate({ show_border: !!checked })}
+							onCheckedChange={(checked) => onUpdate({ showBorder: !!checked })}
 						/>
 					</div>
 				</div>

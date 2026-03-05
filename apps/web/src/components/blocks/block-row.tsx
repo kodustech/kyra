@@ -7,7 +7,7 @@ import { GripVertical, Trash2 } from "lucide-react";
 interface BlockRowProps {
 	block: {
 		id: string;
-		view_type: string;
+		viewType: string;
 		database: { id: string; name: string } | null;
 	};
 	onDelete: (id: string) => void;
@@ -40,11 +40,11 @@ export function BlockRow({ block, onDelete }: BlockRowProps) {
 			</button>
 
 			<span className="flex-1 truncate text-sm font-medium">
-				{block.view_type === "richtext" ? "Rich Text" : block.database?.name}
+				{block.viewType === "richtext" ? "Rich Text" : block.database?.name}
 			</span>
 
 			<Badge variant="secondary" className="text-xs">
-				{block.view_type}
+				{block.viewType}
 			</Badge>
 
 			<Button

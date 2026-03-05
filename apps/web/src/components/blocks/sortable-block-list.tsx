@@ -16,7 +16,7 @@ import { BlockRow } from "./block-row";
 
 interface BlockItem {
 	id: string;
-	view_type: string;
+	viewType: string;
 	database: { id: string; name: string } | null;
 }
 

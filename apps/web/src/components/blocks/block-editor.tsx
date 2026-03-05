@@ -24,7 +24,7 @@ export function BlockEditor({ pageId }: BlockEditorProps) {
 	useEffect(() => {
 		const initial: Record<string, string> = {};
 		for (const block of blocks) {
-			if (block.view_type === "richtext") {
+			if (block.viewType === "richtext") {
 				initial[block.id] = block.content ?? "";
 			}
 		}
@@ -119,20 +119,20 @@ export function BlockEditor({ pageId }: BlockEditorProps) {
 						{blocks.map((block) => (
 							<div key={block.id} className="rounded-lg border border-border p-4">
 								<h4 className="mb-3 text-sm font-medium text-muted-foreground">
-									{block.view_type === "richtext"
+									{block.viewType === "richtext"
 										? "Rich Text"
-										: `${block.database?.name} — ${block.view_type}`}
+										: `${block.database?.name} — ${block.viewType}`}
 								</h4>
-								{block.view_type === "richtext" ? (
+								{block.viewType === "richtext" ? (
 									<RichTextEditor
 										content={richTextContents[block.id] ?? block.content ?? ""}
 										onChange={(content) => handleRichTextChange(block.id, content)}
 									/>
 								) : (
 									<BlockRenderer
-										databaseId={block.database_id!}
+										databaseId={block.databaseId!}
 										databaseName={block.database?.name ?? ""}
-										viewType={block.view_type}
+										viewType={block.viewType}
 									/>
 								)}
 							</div>

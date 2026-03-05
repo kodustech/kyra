@@ -53,22 +53,22 @@ export function PublicPage() {
 
 			<div className="space-y-8">
 				{page.blocks.map((block) => {
-					const showBorder = block.view_type !== "richtext" && block.show_border !== false;
-					const showTitle = block.view_type !== "richtext" && block.show_title !== false;
+					const showBorder = block.viewType !== "richtext" && block.showBorder !== false;
+					const showTitle = block.viewType !== "richtext" && block.showTitle !== false;
 					const displayTitle = block.title ?? block.database?.name;
 
 					return (
 					<div
 						key={block.id}
 						className={
-							block.view_type === "richtext"
+							block.viewType === "richtext"
 								? ""
 								: showBorder
 									? "rounded-lg border border-border p-6"
 									: "p-6"
 						}
 					>
-						{block.view_type === "richtext" ? (
+						{block.viewType === "richtext" ? (
 							<RichTextRenderer content={block.content ?? ""} />
 						) : (
 							<>
@@ -76,7 +76,7 @@ export function PublicPage() {
 
 								{block.fields.length === 0 ? (
 									<p className="text-sm text-muted-foreground">No fields configured</p>
-								) : block.view_type === "kanban" ? (
+								) : block.viewType === "kanban" ? (
 									(() => {
 										const statusField = block.fields.find((f) => f.type === "kanban_status");
 										if (!statusField) return <p className="text-sm text-muted-foreground">No kanban status field configured</p>;
@@ -96,7 +96,7 @@ export function PublicPage() {
 											/>
 										);
 									})()
-								) : block.view_type === "table" ? (
+								) : block.viewType === "table" ? (
 									<DataTable
 										fields={block.fields}
 										records={block.records}

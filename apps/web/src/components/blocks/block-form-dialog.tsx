@@ -40,8 +40,8 @@ export function BlockFormDialog({ open, onOpenChange, onSubmit }: BlockFormDialo
 		setLoading(true);
 		try {
 			const payload: CreateBlockInput = isRichText
-				? { view_type: "richtext" }
-				: { database_id: databaseId, view_type: viewType as "form" | "table" | "kanban" };
+				? { viewType: "richtext" }
+				: { databaseId, viewType: viewType as "form" | "table" | "kanban" };
 
 			await onSubmit(payload);
 			setDatabaseId("");

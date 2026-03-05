@@ -86,7 +86,7 @@ export function KanbanBoard({
 		}
 		// Sort each column by created_at ascending
 		for (const arr of map.values()) {
-			arr.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+			arr.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 		}
 		return map;
 	}, [records, statusField.id, statusOptions, firstStatusId]);
@@ -247,7 +247,11 @@ export function KanbanBoard({
 					{activeRecord ? (
 						<KanbanCard
 							record={activeRecord}
-							highlightFields={fields.filter((f) => f.highlight)}
+							highlightFields={
+							fields.filter((f) => f.highlight).length > 0
+								? fields.filter((f) => f.highlight)
+								: fields.filter((f) => f.type !== "kanban_status").slice(0, 1)
+						}
 							onClick={() => {}}
 						/>
 					) : null}

@@ -27,7 +27,7 @@ interface UserItem {
 	email: string;
 	role: UserRole;
 	color: string;
-	created_at: string;
+	createdAt: string;
 }
 
 const ROLE_COLORS: Record<UserRole, "default" | "secondary" | "outline"> = {
