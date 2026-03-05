@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/providers/auth-provider";
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
 const DEFAULT_COLORS = [
@@ -108,6 +108,13 @@ export function SetupPage() {
 						{loading ? "Creating..." : "Create Account"}
 					</Button>
 				</form>
+
+				<p className="text-center text-sm text-muted-foreground">
+					Already have an account?{" "}
+					<Link to="/login" className="text-primary hover:underline">
+						Sign in
+					</Link>
+				</p>
 			</div>
 		</div>
 	);

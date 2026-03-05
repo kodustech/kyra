@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/providers/auth-provider";
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
 export function LoginPage() {
@@ -64,6 +64,13 @@ export function LoginPage() {
 						{loading ? "Signing in..." : "Sign In"}
 					</Button>
 				</form>
+
+				<p className="text-center text-sm text-muted-foreground">
+					First time?{" "}
+					<Link to="/setup" className="text-primary hover:underline">
+						Create your account
+					</Link>
+				</p>
 			</div>
 		</div>
 	);
