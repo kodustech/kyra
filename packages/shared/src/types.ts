@@ -1,5 +1,125 @@
 import { z } from "zod";
 
+// ─── User Roles ─────────────────────────────────────────────────────────────────
+
+export const USER_ROLES = ["owner", "admin", "editor", "viewer"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
+export interface User {
+	id: string;
+	name: string;
+	email: string;
+	role: UserRole;
+	color: string;
+	deleted_at: string | null;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface AuthUser {
+	id: string;
+	name: string;
+	email: string;
+	role: UserRole;
+	color: string;
+}
+
+export interface Invite {
+	id: string;
+	email: string;
+	name: string;
+	role: UserRole;
+	token: string;
+	expires_at: string;
+	accepted_at: string | null;
+	invited_by: string;
+	created_at: string;
+}
+
+// ─── Auth Zod Schemas ───────────────────────────────────────────────────────────
+
+export const setupSchema = z.object({
+	name: z.string().min(1, "Name is required").max(255),
+	email: z.string().email("Invalid email"),
+	password: z.string().min(6, "Password must be at least 6 characters"),
+	color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Invalid hex color").default("#6366f1"),
+});
+
+export const loginSchema = z.object({
+	email: z.string().email("Invalid email"),
+	password: z.string().min(1, "Password is required"),
+});
+
+export const createInviteSchema = z.object({
+	name: z.string().min(1, "Name is required").max(255),
+	email: z.string().email("Invalid email"),
+	role: z.enum(["admin", "editor", "viewer"] as const).default("editor"),
+});
+
+export const acceptInviteSchema = z.object({
+	password: z.string().min(6, "Password must be at least 6 characters"),
+	color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Invalid hex color").default("#6366f1"),
+});
+
+export const updateUserSchema_auth = z.object({
+	name: z.string().min(1).max(255).optional(),
+	role: z.enum(USER_ROLES).optional(),
+});
+
+export const updateProfileSchema = z.object({
+	name: z.string().min(1).max(255).optional(),
+	color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Invalid hex color").optional(),
+	password: z.string().min(6).optional(),
+});
+
+export const transferOwnershipSchema = z.object({
+	newOwnerId: z.string().uuid("Invalid user ID"),
+});
+
+export type SetupInput = z.infer<typeof setupSchema>;
+export type LoginInput = z.infer<typeof loginSchema>;
+export type CreateInviteInput = z.infer<typeof createInviteSchema>;
+export type AcceptInviteInput = z.infer<typeof acceptInviteSchema>;
+export type UpdateUserAuthInput = z.infer<typeof updateUserSchema_auth>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+export type TransferOwnershipInput = z.infer<typeof transferOwnershipSchema>;
+
+// ─── Permission Helpers ─────────────────────────────────────────────────────────
+
+export function canManageUsers(role: UserRole): boolean {
+	return role === "owner" || role === "admin";
+}
+
+export function canManageDatabases(role: UserRole): boolean {
+	return role === "owner" || role === "admin";
+}
+
+export function canEditContent(role: UserRole): boolean {
+	return role === "owner" || role === "admin" || role === "editor";
+}
+
+export function canManageRole(actorRole: UserRole, targetRole: UserRole): boolean {
+	if (actorRole === "owner") return true;
+	if (actorRole === "admin") return targetRole === "editor" || targetRole === "viewer";
+	return false;
+}
+
+export function canTransferOwnership(role: UserRole): boolean {
+	return role === "owner";
+}
+
+// ─── Utility Helpers ────────────────────────────────────────────────────────────
+
+export function getInitials(name: string): string {
+	return name
+		.split(" ")
+		.filter(Boolean)
+		.map((w) => w[0])
+		.slice(0, 2)
+		.join("")
+		.toUpperCase();
+}
+
 // ─── View Types ─────────────────────────────────────────────────────────────────
 
 export const VIEW_TYPES = ["form", "table", "richtext", "kanban"] as const;

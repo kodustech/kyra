@@ -1,10 +1,42 @@
 const BASE = import.meta.env.VITE_API_URL || "/api";
 
+const TOKEN_KEY = "kyra:auth-token";
+
+export function getToken(): string | null {
+	try {
+		return localStorage.getItem(TOKEN_KEY);
+	} catch {
+		return null;
+	}
+}
+
+export function setToken(token: string): void {
+	localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function removeToken(): void {
+	localStorage.removeItem(TOKEN_KEY);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-	const res = await fetch(`${BASE}${path}`, {
-		headers: { "Content-Type": "application/json", ...init?.headers },
-		...init,
-	});
+	const token = getToken();
+	const headers: Record<string, string> = {
+		"Content-Type": "application/json",
+		...(init?.headers as Record<string, string>),
+	};
+	if (token) {
+		headers.Authorization = `Bearer ${token}`;
+	}
+
+	const res = await fetch(`${BASE}${path}`, { ...init, headers });
+
+	if (res.status === 401) {
+		removeToken();
+		if (window.location.pathname !== "/login" && window.location.pathname !== "/setup") {
+			window.location.href = "/login";
+		}
+		throw new Error("Unauthorized");
+	}
 
 	if (!res.ok) {
 		const body = await res.json().catch(() => ({ error: res.statusText }));

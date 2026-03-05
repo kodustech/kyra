@@ -11,7 +11,9 @@ import { useBlocks } from "@/hooks/use-blocks";
 import { usePages } from "@/hooks/use-pages";
 import { api } from "@/lib/api";
 import type { Page, UpdateBlockInput } from "@kyra/shared";
+import { canEditContent } from "@kyra/shared";
 import { IconPicker } from "@/components/ui/icon-picker";
+import { useAuth } from "@/providers/auth-provider";
 import { ExternalLink, Eye, Settings, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
@@ -21,6 +23,8 @@ export function PageDetail() {
 	const { pageId = "" } = useParams<{ pageId: string }>();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const { update } = usePages();
+	const { user } = useAuth();
+	const isEditor = user ? canEditContent(user.role) : false;
 
 	const isConfig = searchParams.has("config");
 
@@ -121,13 +125,14 @@ export function PageDetail() {
 					<h2 className="text-2xl font-semibold">{page.name}</h2>
 				</div>
 				<div className="flex items-center gap-2">
-					{published && (
+					{isEditor && published && (
 						<Button variant="outline" size="sm" asChild>
 							<a href={`/p/${page.slug}`} target="_blank" rel="noopener noreferrer">
 								<ExternalLink className="mr-2 h-4 w-4" /> Open Public
 							</a>
 						</Button>
 					)}
+					{isEditor && (
 					<Button
 						variant="outline"
 						size="icon"
@@ -136,7 +141,8 @@ export function PageDetail() {
 					>
 						{isConfig ? <Eye className="h-4 w-4" /> : <Settings className="h-4 w-4" />}
 					</Button>
-					{isConfig && (
+					)}
+					{isEditor && isConfig && (
 						<Button
 							variant="ghost"
 							size="icon"

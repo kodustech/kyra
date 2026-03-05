@@ -12,11 +12,15 @@
 	"dependencies": {
 		"@kyra/shared": "workspace:*",
 		"@supabase/supabase-js": "^2.47.12",
+		"bcryptjs": "^3.0.3",
 		"hono": "^4.6.15",
+		"jsonwebtoken": "^9.0.3",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
+		"@types/bcryptjs": "^3.0.0",
 		"@types/bun": "^1.1.14",
+		"@types/jsonwebtoken": "^9.0.10",
 		"typescript": "^5.7.3"
 	}
 }

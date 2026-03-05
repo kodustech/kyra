@@ -1,9 +1,10 @@
 import { createBlockSchema, reorderBlocksSchema, updateBlockSchema } from "@kyra/shared";
 import { Hono } from "hono";
+import { type AppEnv, requireRole } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { parseBody } from "../lib/validate";
 
-export const blocks = new Hono();
+export const blocks = new Hono<AppEnv>();
 
 // GET / — List blocks for a page
 blocks.get("/", async (c) => {
@@ -19,7 +20,7 @@ blocks.get("/", async (c) => {
 });
 
 // POST / — Create block
-blocks.post("/", async (c) => {
+blocks.post("/", requireRole("owner", "admin", "editor"), async (c) => {
 	const pageId = c.req.param("pageId");
 	const parsed = await parseBody(c, createBlockSchema);
 	if ("error" in parsed) return parsed.error;
@@ -73,7 +74,7 @@ blocks.post("/", async (c) => {
 });
 
 // PATCH /:blockId — Update block
-blocks.patch("/:blockId", async (c) => {
+blocks.patch("/:blockId", requireRole("owner", "admin", "editor"), async (c) => {
 	const blockId = c.req.param("blockId");
 	const parsed = await parseBody(c, updateBlockSchema);
 	if ("error" in parsed) return parsed.error;
@@ -90,7 +91,7 @@ blocks.patch("/:blockId", async (c) => {
 });
 
 // DELETE /:blockId — Delete block
-blocks.delete("/:blockId", async (c) => {
+blocks.delete("/:blockId", requireRole("owner", "admin", "editor"), async (c) => {
 	const blockId = c.req.param("blockId");
 	const { error } = await supabase.from("blocks").delete().eq("id", blockId);
 
@@ -99,7 +100,7 @@ blocks.delete("/:blockId", async (c) => {
 });
 
 // PUT /reorder — Reorder blocks
-blocks.put("/reorder", async (c) => {
+blocks.put("/reorder", requireRole("owner", "admin", "editor"), async (c) => {
 	const parsed = await parseBody(c, reorderBlocksSchema);
 	if ("error" in parsed) return parsed.error;
 

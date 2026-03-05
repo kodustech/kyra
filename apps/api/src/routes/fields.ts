@@ -1,10 +1,11 @@
 import { bulkCreateFieldsSchema, createFieldSchema, reorderFieldsSchema, updateFieldSchema } from "@kyra/shared";
 import type { BulkCreateFieldsInput, CreateFieldInput } from "@kyra/shared";
 import { Hono } from "hono";
+import { type AppEnv, requireRole } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { parseBody } from "../lib/validate";
 
-export const fields = new Hono();
+export const fields = new Hono<AppEnv>();
 
 // GET / — List fields for a database
 fields.get("/", async (c) => {
@@ -20,7 +21,7 @@ fields.get("/", async (c) => {
 });
 
 // POST / — Create field
-fields.post("/", async (c) => {
+fields.post("/", requireRole("owner", "admin"), async (c) => {
 	const databaseId = c.req.param("databaseId");
 	const parsed = await parseBody(c, createFieldSchema);
 	if ("error" in parsed) return parsed.error;
@@ -84,7 +85,7 @@ fields.post("/", async (c) => {
 });
 
 // POST /bulk — Bulk create fields
-fields.post("/bulk", async (c) => {
+fields.post("/bulk", requireRole("owner", "admin"), async (c) => {
 	const databaseId = c.req.param("databaseId");
 	const parsed = await parseBody(c, bulkCreateFieldsSchema);
 	if ("error" in parsed) return parsed.error;
@@ -153,7 +154,7 @@ fields.post("/bulk", async (c) => {
 });
 
 // PATCH /:fieldId — Update field
-fields.patch("/:fieldId", async (c) => {
+fields.patch("/:fieldId", requireRole("owner", "admin"), async (c) => {
 	const fieldId = c.req.param("fieldId");
 	const parsed = await parseBody(c, updateFieldSchema);
 	if ("error" in parsed) return parsed.error;
@@ -170,7 +171,7 @@ fields.patch("/:fieldId", async (c) => {
 });
 
 // DELETE /:fieldId — Delete field
-fields.delete("/:fieldId", async (c) => {
+fields.delete("/:fieldId", requireRole("owner", "admin"), async (c) => {
 	const fieldId = c.req.param("fieldId");
 	const { error } = await supabase.from("fields").delete().eq("id", fieldId);
 
@@ -179,7 +180,7 @@ fields.delete("/:fieldId", async (c) => {
 });
 
 // PUT /reorder — Reorder fields
-fields.put("/reorder", async (c) => {
+fields.put("/reorder", requireRole("owner", "admin"), async (c) => {
 	const parsed = await parseBody(c, reorderFieldsSchema);
 	if ("error" in parsed) return parsed.error;
 

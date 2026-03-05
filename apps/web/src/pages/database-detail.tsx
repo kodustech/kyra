@@ -18,13 +18,20 @@ import { useFields } from "@/hooks/use-fields";
 import { useRecords } from "@/hooks/use-records";
 import { api } from "@/lib/api";
 import type { Database, Record as DbRecord } from "@kyra/shared";
+import { canManageDatabases } from "@kyra/shared";
+import { useAuth } from "@/providers/auth-provider";
 import { FileSpreadsheet, Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router";
+import { Navigate, useParams } from "react-router";
 import { toast } from "sonner";
 
 export function DatabaseDetail() {
+	const { user } = useAuth();
 	const { databaseId = "" } = useParams<{ databaseId: string }>();
+
+	if (user && !canManageDatabases(user.role)) {
+		return <Navigate to="/" replace />;
+	}
 	const { fields, loading: fieldsLoading } = useFields(databaseId);
 	const { records, loading: recordsLoading, create, update, remove } = useRecords(databaseId);
 

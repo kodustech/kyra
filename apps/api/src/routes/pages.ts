@@ -1,9 +1,10 @@
 import { createPageSchema, reorderPagesSchema, updatePageSchema } from "@kyra/shared";
 import { Hono } from "hono";
+import { type AppEnv, requireRole } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { parseBody } from "../lib/validate";
 
-export const pages = new Hono();
+export const pages = new Hono<AppEnv>();
 
 // GET / — List all pages
 pages.get("/", async (c) => {
@@ -18,7 +19,7 @@ pages.get("/", async (c) => {
 });
 
 // POST / — Create page
-pages.post("/", async (c) => {
+pages.post("/", requireRole("owner", "admin", "editor"), async (c) => {
 	const parsed = await parseBody(c, createPageSchema);
 	if ("error" in parsed) return parsed.error;
 
@@ -56,7 +57,7 @@ pages.get("/:id", async (c) => {
 });
 
 // PATCH /:id — Update page
-pages.patch("/:id", async (c) => {
+pages.patch("/:id", requireRole("owner", "admin", "editor"), async (c) => {
 	const id = c.req.param("id");
 	const parsed = await parseBody(c, updatePageSchema);
 	if ("error" in parsed) return parsed.error;
@@ -78,7 +79,7 @@ pages.patch("/:id", async (c) => {
 });
 
 // DELETE /:id — Delete page
-pages.delete("/:id", async (c) => {
+pages.delete("/:id", requireRole("owner", "admin", "editor"), async (c) => {
 	const id = c.req.param("id");
 	const { error } = await supabase.from("pages").delete().eq("id", id);
 
@@ -87,7 +88,7 @@ pages.delete("/:id", async (c) => {
 });
 
 // PUT /reorder — Reorder pages
-pages.put("/reorder", async (c) => {
+pages.put("/reorder", requireRole("owner", "admin", "editor"), async (c) => {
 	const parsed = await parseBody(c, reorderPagesSchema);
 	if ("error" in parsed) return parsed.error;
 

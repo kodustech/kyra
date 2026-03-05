@@ -1,9 +1,10 @@
 import { buildRecordValidator } from "@kyra/shared";
 import type { Field } from "@kyra/shared";
 import { Hono } from "hono";
+import { type AppEnv, requireRole } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 
-export const records = new Hono();
+export const records = new Hono<AppEnv>();
 
 async function getFields(databaseId: string): Promise<Field[]> {
 	const { data, error } = await supabase
@@ -35,7 +36,7 @@ records.get("/", async (c) => {
 });
 
 // POST / — Create record (with dynamic validation)
-records.post("/", async (c) => {
+records.post("/", requireRole("owner", "admin", "editor"), async (c) => {
 	const databaseId = c.req.param("databaseId") as string;
 
 	let fields: Field[];
@@ -64,7 +65,7 @@ records.post("/", async (c) => {
 });
 
 // PATCH /:recordId — Update record
-records.patch("/:recordId", async (c) => {
+records.patch("/:recordId", requireRole("owner", "admin", "editor"), async (c) => {
 	const recordId = c.req.param("recordId");
 	const databaseId = c.req.param("databaseId") as string;
 
@@ -95,7 +96,7 @@ records.patch("/:recordId", async (c) => {
 });
 
 // DELETE /:recordId — Delete record
-records.delete("/:recordId", async (c) => {
+records.delete("/:recordId", requireRole("owner", "admin", "editor"), async (c) => {
 	const recordId = c.req.param("recordId");
 	const { error } = await supabase.from("records").delete().eq("id", recordId);
 

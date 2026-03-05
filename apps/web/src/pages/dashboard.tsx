@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useDatabases } from "@/hooks/use-databases";
 import { usePages } from "@/hooks/use-pages";
+import { useAuth } from "@/providers/auth-provider";
 import type { Database as DatabaseType, Page as PageType } from "@kyra/shared";
+import { canEditContent, canManageDatabases } from "@kyra/shared";
 import { PageIcon } from "@/components/ui/icon-picker";
 import { Database, FileText, Plus } from "lucide-react";
 import { useState } from "react";
@@ -17,11 +19,15 @@ import { Link } from "react-router";
 export function Dashboard() {
 	const { pages, loading: pagesLoading } = usePages();
 	const { databases, loading: dbLoading } = useDatabases();
+	const { user } = useAuth();
 	const [showCreatePage, setShowCreatePage] = useState(false);
 	const [showCreateDb, setShowCreateDb] = useState(false);
 	const [editDb, setEditDb] = useState<DatabaseType | null>(null);
 	const [deleteDb, setDeleteDb] = useState<DatabaseType | null>(null);
 	const [deletePage, setDeletePage] = useState<PageType | null>(null);
+
+	const showNewPage = user ? canEditContent(user.role) : false;
+	const showDatabases = user ? canManageDatabases(user.role) : false;
 
 	if (pagesLoading && dbLoading) {
 		return (
@@ -36,9 +42,11 @@ export function Dashboard() {
 			{/* Pages section */}
 			<div className="mb-6 flex items-center justify-between">
 				<h2 className="text-2xl font-semibold">Pages</h2>
-				<Button onClick={() => setShowCreatePage(true)}>
-					<Plus className="mr-2 h-4 w-4" /> New Page
-				</Button>
+				{showNewPage && (
+					<Button onClick={() => setShowCreatePage(true)}>
+						<Plus className="mr-2 h-4 w-4" /> New Page
+					</Button>
+				)}
 			</div>
 
 			{pages.length === 0 ? (
@@ -46,11 +54,13 @@ export function Dashboard() {
 					<FileText className="mb-4 h-12 w-12 text-muted-foreground" />
 					<p className="mb-2 text-lg font-medium">No pages yet</p>
 					<p className="mb-4 text-sm text-muted-foreground">
-						Create your first page to get started.
+						{showNewPage ? "Create your first page to get started." : "No pages available."}
 					</p>
-					<Button onClick={() => setShowCreatePage(true)}>
-						<Plus className="mr-2 h-4 w-4" /> Create Page
-					</Button>
+					{showNewPage && (
+						<Button onClick={() => setShowCreatePage(true)}>
+							<Plus className="mr-2 h-4 w-4" /> Create Page
+						</Button>
+					)}
 				</div>
 			) : (
 				<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -65,16 +75,18 @@ export function Dashboard() {
 									<PageIcon name={page.icon} className="h-5 w-5 text-muted-foreground" />
 									<span className="font-medium">{page.name}</span>
 								</div>
-								<button
-									type="button"
-									onClick={(e) => {
-										e.preventDefault();
-										setDeletePage(page);
-									}}
-									className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
-								>
-									<span className="text-xs">Delete</span>
-								</button>
+								{showNewPage && (
+									<button
+										type="button"
+										onClick={(e) => {
+											e.preventDefault();
+											setDeletePage(page);
+										}}
+										className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
+									>
+										<span className="text-xs">Delete</span>
+									</button>
+								)}
 							</div>
 							<p className="mt-2 text-xs text-muted-foreground">/p/{page.slug}</p>
 							<span
@@ -91,33 +103,37 @@ export function Dashboard() {
 				</div>
 			)}
 
-			<Separator className="my-8" />
+			{showDatabases && (
+				<>
+					<Separator className="my-8" />
 
-			{/* Databases section */}
-			<div className="mb-6 flex items-center justify-between">
-				<h2 className="text-2xl font-semibold">Databases</h2>
-				<Button onClick={() => setShowCreateDb(true)}>
-					<Plus className="mr-2 h-4 w-4" /> New Database
-				</Button>
-			</div>
+					{/* Databases section */}
+					<div className="mb-6 flex items-center justify-between">
+						<h2 className="text-2xl font-semibold">Databases</h2>
+						<Button onClick={() => setShowCreateDb(true)}>
+							<Plus className="mr-2 h-4 w-4" /> New Database
+						</Button>
+					</div>
 
-			{databases.length === 0 ? (
-				<div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-12">
-					<Database className="mb-4 h-12 w-12 text-muted-foreground" />
-					<p className="mb-2 text-lg font-medium">No databases yet</p>
-					<p className="mb-4 text-sm text-muted-foreground">
-						Create your first database to get started.
-					</p>
-					<Button onClick={() => setShowCreateDb(true)}>
-						<Plus className="mr-2 h-4 w-4" /> Create Database
-					</Button>
-				</div>
-			) : (
-				<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-					{databases.map((db) => (
-						<DatabaseCard key={db.id} database={db} onEdit={setEditDb} onDelete={setDeleteDb} />
-					))}
-				</div>
+					{databases.length === 0 ? (
+						<div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-12">
+							<Database className="mb-4 h-12 w-12 text-muted-foreground" />
+							<p className="mb-2 text-lg font-medium">No databases yet</p>
+							<p className="mb-4 text-sm text-muted-foreground">
+								Create your first database to get started.
+							</p>
+							<Button onClick={() => setShowCreateDb(true)}>
+								<Plus className="mr-2 h-4 w-4" /> Create Database
+							</Button>
+						</div>
+					) : (
+						<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+							{databases.map((db) => (
+								<DatabaseCard key={db.id} database={db} onEdit={setEditDb} onDelete={setDeleteDb} />
+							))}
+						</div>
+					)}
+				</>
 			)}
 
 			<CreatePageDialog open={showCreatePage} onOpenChange={setShowCreatePage} />

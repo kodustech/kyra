@@ -1,9 +1,10 @@
 import { createDatabaseSchema, reorderDatabasesSchema, updateDatabaseSchema } from "@kyra/shared";
 import { Hono } from "hono";
+import { type AppEnv, requireRole } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { parseBody } from "../lib/validate";
 
-export const databases = new Hono();
+export const databases = new Hono<AppEnv>();
 
 // GET / — List all databases
 databases.get("/", async (c) => {
@@ -18,7 +19,7 @@ databases.get("/", async (c) => {
 });
 
 // POST / — Create database
-databases.post("/", async (c) => {
+databases.post("/", requireRole("owner", "admin"), async (c) => {
 	const parsed = await parseBody(c, createDatabaseSchema);
 	if ("error" in parsed) return parsed.error;
 
@@ -51,7 +52,7 @@ databases.get("/:id", async (c) => {
 });
 
 // PATCH /:id — Update database
-databases.patch("/:id", async (c) => {
+databases.patch("/:id", requireRole("owner", "admin"), async (c) => {
 	const id = c.req.param("id");
 	const parsed = await parseBody(c, updateDatabaseSchema);
 	if ("error" in parsed) return parsed.error;
@@ -68,7 +69,7 @@ databases.patch("/:id", async (c) => {
 });
 
 // DELETE /:id — Delete database
-databases.delete("/:id", async (c) => {
+databases.delete("/:id", requireRole("owner", "admin"), async (c) => {
 	const id = c.req.param("id");
 	const { error } = await supabase.from("databases").delete().eq("id", id);
 
@@ -77,7 +78,7 @@ databases.delete("/:id", async (c) => {
 });
 
 // PUT /reorder — Reorder databases
-databases.put("/reorder", async (c) => {
+databases.put("/reorder", requireRole("owner", "admin"), async (c) => {
 	const parsed = await parseBody(c, reorderDatabasesSchema);
 	if ("error" in parsed) return parsed.error;
 

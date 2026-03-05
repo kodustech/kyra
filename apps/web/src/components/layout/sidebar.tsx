@@ -14,7 +14,8 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Database as DatabaseType, Page as PageType } from "@kyra/shared";
+import type { Database as DatabaseType, Page as PageType, UserRole } from "@kyra/shared";
+import { canEditContent, canManageDatabases } from "@kyra/shared";
 import { PageIcon } from "@/components/ui/icon-picker";
 import { ChevronDown, Database, GripVertical, Pin, PinOff, Plus } from "lucide-react";
 import { useState } from "react";
@@ -29,6 +30,7 @@ interface SidebarProps {
 	onReorderDatabases: (databaseIds: string[]) => void;
 	pinned: boolean;
 	onPinChange: (pinned: boolean) => void;
+	userRole?: UserRole;
 }
 
 export function Sidebar({
@@ -40,6 +42,7 @@ export function Sidebar({
 	onReorderDatabases,
 	pinned,
 	onPinChange,
+	userRole,
 }: SidebarProps) {
 	const location = useLocation();
 	const [pagesOpen, setPagesOpen] = useState(true);
@@ -95,6 +98,7 @@ export function Sidebar({
 				onToggle={() => setPagesOpen((v) => !v)}
 				onAdd={onCreatePage}
 				addTitle="New page"
+				showAdd={!userRole || canEditContent(userRole)}
 			/>
 			{pagesOpen && (
 				<nav className="overflow-y-auto p-2">
@@ -126,43 +130,47 @@ export function Sidebar({
 				</nav>
 			)}
 
-			{/* Databases section */}
-			<SectionHeader
-				label="Databases"
-				open={dbOpen}
-				onToggle={() => setDbOpen((v) => !v)}
-				onAdd={onCreateDatabase}
-				addTitle="New database"
-				borderTop
-			/>
-			{dbOpen && (
-				<nav className="flex-1 overflow-y-auto p-2">
-					{databases.length === 0 ? (
-						<p className="px-2 py-4 text-center text-xs text-muted-foreground">No databases yet</p>
-					) : (
-						<DndContext
-							sensors={sensors}
-							collisionDetection={closestCenter}
-							onDragEnd={handleDbDragEnd}
-						>
-							<SortableContext
-								items={databases.map((d) => d.id)}
-								strategy={verticalListSortingStrategy}
-							>
-								{databases.map((db) => (
-									<SortableNavItem
-										key={db.id}
-										id={db.id}
-										to={`/databases/${db.id}`}
-										label={db.name}
-										icon={<Database className="h-4 w-4 shrink-0" />}
-										active={location.pathname === `/databases/${db.id}`}
-									/>
-								))}
-							</SortableContext>
-						</DndContext>
+			{/* Databases section — only for users who can manage databases */}
+			{(!userRole || canManageDatabases(userRole)) && (
+				<>
+					<SectionHeader
+						label="Databases"
+						open={dbOpen}
+						onToggle={() => setDbOpen((v) => !v)}
+						onAdd={onCreateDatabase}
+						addTitle="New database"
+						borderTop
+					/>
+					{dbOpen && (
+						<nav className="flex-1 overflow-y-auto p-2">
+							{databases.length === 0 ? (
+								<p className="px-2 py-4 text-center text-xs text-muted-foreground">No databases yet</p>
+							) : (
+								<DndContext
+									sensors={sensors}
+									collisionDetection={closestCenter}
+									onDragEnd={handleDbDragEnd}
+								>
+									<SortableContext
+										items={databases.map((d) => d.id)}
+										strategy={verticalListSortingStrategy}
+									>
+										{databases.map((db) => (
+											<SortableNavItem
+												key={db.id}
+												id={db.id}
+												to={`/databases/${db.id}`}
+												label={db.name}
+												icon={<Database className="h-4 w-4 shrink-0" />}
+												active={location.pathname === `/databases/${db.id}`}
+											/>
+										))}
+									</SortableContext>
+								</DndContext>
+							)}
+						</nav>
 					)}
-				</nav>
+				</>
 			)}
 		</aside>
 	);
@@ -177,6 +185,7 @@ function SectionHeader({
 	onAdd,
 	addTitle,
 	borderTop,
+	showAdd = true,
 }: {
 	label: string;
 	open: boolean;
@@ -184,6 +193,7 @@ function SectionHeader({
 	onAdd: () => void;
 	addTitle: string;
 	borderTop?: boolean;
+	showAdd?: boolean;
 }) {
 	return (
 		<div
@@ -197,17 +207,19 @@ function SectionHeader({
 				<ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "" : "-rotate-90"}`} />
 				{label}
 			</button>
-			<button
-				type="button"
-				onClick={(e) => {
-					e.stopPropagation();
-					onAdd();
-				}}
-				className="inline-flex h-6 w-6 items-center justify-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-				title={addTitle}
-			>
-				<Plus className="h-3.5 w-3.5" />
-			</button>
+			{showAdd && (
+				<button
+					type="button"
+					onClick={(e) => {
+						e.stopPropagation();
+						onAdd();
+					}}
+					className="inline-flex h-6 w-6 items-center justify-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+					title={addTitle}
+				>
+					<Plus className="h-3.5 w-3.5" />
+				</button>
+			)}
 		</div>
 	);
 }

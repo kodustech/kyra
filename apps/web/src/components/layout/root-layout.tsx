@@ -2,6 +2,7 @@ import { CreateDatabaseDialog } from "@/components/databases/create-database-dia
 import { CreatePageDialog } from "@/components/pages/create-page-dialog";
 import { useDatabases } from "@/hooks/use-databases";
 import { usePages } from "@/hooks/use-pages";
+import { useAuth } from "@/providers/auth-provider";
 import { Eye } from "lucide-react";
 import { useState } from "react";
 import { Outlet } from "react-router";
@@ -22,6 +23,7 @@ function getInitialPinned(): boolean {
 export function RootLayout() {
 	const { databases, reorder: reorderDatabases } = useDatabases();
 	const { pages, reorder: reorderPages } = usePages();
+	const { user } = useAuth();
 	const [showCreateDb, setShowCreateDb] = useState(false);
 	const [showCreatePage, setShowCreatePage] = useState(false);
 	const [pinned, setPinned] = useState(getInitialPinned);
@@ -46,6 +48,7 @@ export function RootLayout() {
 		onReorderDatabases: reorderDatabases,
 		pinned,
 		onPinChange: handlePinChange,
+		userRole: user?.role,
 	};
 
 	return (
