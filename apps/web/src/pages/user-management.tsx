@@ -35,7 +35,10 @@ const ROLE_COLORS: Record<UserRole, "default" | "secondary" | "outline"> = {
 	admin: "secondary",
 	editor: "outline",
 	viewer: "outline",
+	pending: "outline",
 };
+
+const GRID_COLS = "grid-cols-[1.75rem_1fr_1fr_7rem_7rem]";
 
 export function UserManagement() {
 	const { user: currentUser } = useAuth();
@@ -43,6 +46,10 @@ export function UserManagement() {
 	const [invites, setInvites] = useState<Invite[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [showInvite, setShowInvite] = useState(false);
+	const [deleteTarget, setDeleteTarget] = useState<UserItem | null>(null);
+	const [deleting, setDeleting] = useState(false);
+	const [transferTarget, setTransferTarget] = useState<UserItem | null>(null);
+	const [transferring, setTransferring] = useState(false);
 
 	const fetchData = useCallback(async () => {
 		try {
@@ -73,13 +80,18 @@ export function UserManagement() {
 		}
 	}
 
-	async function handleDeleteUser(userId: string) {
+	async function handleDeleteConfirm() {
+		if (!deleteTarget) return;
+		setDeleting(true);
 		try {
-			await api.delete(`/auth/users/${userId}`);
-			setUsers((prev) => prev.filter((u) => u.id !== userId));
+			await api.delete(`/auth/users/${deleteTarget.id}`);
+			setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
 			toast.success("User removed");
+			setDeleteTarget(null);
 		} catch (err) {
 			toast.error((err as Error).message);
+		} finally {
+			setDeleting(false);
 		}
 	}
 
@@ -99,13 +111,18 @@ export function UserManagement() {
 		toast.success("Link copied to clipboard");
 	}
 
-	async function handleTransferOwnership(userId: string) {
+	async function handleTransferConfirm() {
+		if (!transferTarget) return;
+		setTransferring(true);
 		try {
-			await api.post("/auth/transfer-ownership", { newOwnerId: userId });
+			await api.post("/auth/transfer-ownership", { newOwnerId: transferTarget.id });
 			toast.success("Ownership transferred. Reloading...");
+			setTransferTarget(null);
 			setTimeout(() => window.location.reload(), 1000);
 		} catch (err) {
 			toast.error((err as Error).message);
+		} finally {
+			setTransferring(false);
 		}
 	}
 
@@ -130,7 +147,7 @@ export function UserManagement() {
 
 			{/* Users table */}
 			<div className="rounded-xl border border-border">
-				<div className="grid grid-cols-[auto_1fr_1fr_auto_auto] items-center gap-4 border-b border-border px-4 py-3 text-sm font-medium text-muted-foreground">
+				<div className={`grid ${GRID_COLS} items-center gap-4 rounded-t-xl border-b border-border bg-muted/50 px-4 py-3 text-sm font-medium text-muted-foreground`}>
 					<span />
 					<span>Name</span>
 					<span>Email</span>
@@ -142,7 +159,7 @@ export function UserManagement() {
 					return (
 						<div
 							key={u.id}
-							className="grid grid-cols-[auto_1fr_1fr_auto_auto] items-center gap-4 border-b border-border px-4 py-3 last:border-b-0"
+							className={`grid ${GRID_COLS} items-center gap-4 border-b border-border px-4 py-3 last:border-b-0`}
 						>
 							<UserAvatar name={u.name} color={u.color} size="sm" />
 							<span className="text-sm font-medium truncate">
@@ -173,16 +190,12 @@ export function UserManagement() {
 									<Badge variant={ROLE_COLORS[u.role]}>{u.role}</Badge>
 								)}
 							</div>
-							<div className="flex items-center gap-1">
+							<div className="flex items-center justify-end gap-1">
 								{currentUser.role === "owner" && u.id !== currentUser.id && u.role !== "owner" && (
 									<Button
 										variant="ghost"
 										size="sm"
-										onClick={() => {
-											if (confirm(`Transfer ownership to ${u.name}? You will become an Admin.`)) {
-												handleTransferOwnership(u.id);
-											}
-										}}
+										onClick={() => setTransferTarget(u)}
 										className="text-xs"
 									>
 										Transfer
@@ -193,11 +206,7 @@ export function UserManagement() {
 										variant="ghost"
 										size="icon"
 										className="h-8 w-8 text-destructive hover:text-destructive"
-										onClick={() => {
-											if (confirm(`Remove ${u.name}?`)) {
-												handleDeleteUser(u.id);
-											}
-										}}
+										onClick={() => setDeleteTarget(u)}
 									>
 										<Trash2 className="h-4 w-4" />
 									</Button>
@@ -260,6 +269,46 @@ export function UserManagement() {
 					copyInviteLink(invite.token);
 				}}
 			/>
+
+			{/* Delete user confirmation */}
+			<Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Remove User</DialogTitle>
+						<DialogDescription>
+							Are you sure you want to remove <strong>{deleteTarget?.name}</strong>? This action cannot be undone.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setDeleteTarget(null)}>
+							Cancel
+						</Button>
+						<Button variant="destructive" onClick={handleDeleteConfirm} disabled={deleting}>
+							{deleting ? "Removing..." : "Remove"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Transfer ownership confirmation */}
+			<Dialog open={!!transferTarget} onOpenChange={(open) => { if (!open) setTransferTarget(null); }}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Transfer Ownership</DialogTitle>
+						<DialogDescription>
+							Transfer ownership to <strong>{transferTarget?.name}</strong>? You will become an Admin.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setTransferTarget(null)}>
+							Cancel
+						</Button>
+						<Button variant="destructive" onClick={handleTransferConfirm} disabled={transferring}>
+							{transferring ? "Transferring..." : "Transfer"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

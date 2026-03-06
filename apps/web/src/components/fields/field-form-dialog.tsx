@@ -7,6 +7,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { IconPicker } from "@/components/ui/icon-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -37,6 +38,12 @@ const DEFAULT_KANBAN_OPTIONS: KanbanStatusOption[] = [
 	{ id: "todo", label: "To-do", color: "gray", icon: "circle" },
 	{ id: "in-progress", label: "In Progress", color: "blue", icon: "loader" },
 	{ id: "done", label: "Done", color: "green", icon: "circle-check" },
+];
+
+const DEFAULT_LABEL_OPTIONS: KanbanStatusOption[] = [
+	{ id: "bug", label: "Bug", color: "red", icon: null },
+	{ id: "feature", label: "Feature", color: "blue", icon: null },
+	{ id: "improvement", label: "Improvement", color: "green", icon: null },
 ];
 
 const COLOR_DOT: Record<string, string> = {
@@ -75,6 +82,7 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, on
 	const [optionsText, setOptionsText] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [kanbanOptions, setKanbanOptions] = useState<KanbanStatusOption[]>(DEFAULT_KANBAN_OPTIONS);
+	const [labelOptions, setLabelOptions] = useState<KanbanStatusOption[]>(DEFAULT_LABEL_OPTIONS);
 	const [highlight, setHighlight] = useState(false);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset form when dialog opens
@@ -85,7 +93,8 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, on
 			setRequired(field.required);
 			setMask(field.mask || "");
 			setOptionsText(field.options?.join(", ") || "");
-			setKanbanOptions(field.settings?.options ?? DEFAULT_KANBAN_OPTIONS);
+			setKanbanOptions(field.type === "kanban_status" ? (field.settings?.options ?? DEFAULT_KANBAN_OPTIONS) : DEFAULT_KANBAN_OPTIONS);
+			setLabelOptions(field.type === "label" ? (field.settings?.options ?? DEFAULT_LABEL_OPTIONS) : DEFAULT_LABEL_OPTIONS);
 			setHighlight(field.highlight ?? false);
 		} else {
 			setName("");
@@ -94,6 +103,7 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, on
 			setMask("");
 			setOptionsText("");
 			setKanbanOptions(DEFAULT_KANBAN_OPTIONS);
+			setLabelOptions(DEFAULT_LABEL_OPTIONS);
 			setHighlight(false);
 		}
 	}, [field, open]);
@@ -105,6 +115,7 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, on
 		setMask("");
 		setOptionsText("");
 		setKanbanOptions(DEFAULT_KANBAN_OPTIONS);
+		setLabelOptions(DEFAULT_LABEL_OPTIONS);
 		setHighlight(false);
 	}
 
@@ -122,24 +133,27 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, on
 							.filter(Boolean)
 					: null;
 
-			// Derive stable IDs from labels for new kanban options at submit time
-			const finalKanbanOptions =
-				type === "kanban_status"
-					? kanbanOptions.map((opt) => ({
-							...opt,
-							id: opt.label
-								? opt.label.toLowerCase().replace(/\s+/g, "-")
-								: opt.id,
-						}))
-					: null;
+			// Derive stable IDs from labels at submit time
+			const deriveIds = (opts: KanbanStatusOption[]) =>
+				opts.map((opt) => ({
+					...opt,
+					id: opt.label ? opt.label.toLowerCase().replace(/\s+/g, "-") : opt.id,
+				}));
+
+			let finalSettings: { options: KanbanStatusOption[] } | null = null;
+			if (type === "kanban_status") {
+				finalSettings = { options: deriveIds(kanbanOptions) };
+			} else if (type === "label") {
+				finalSettings = { options: deriveIds(labelOptions) };
+			}
 
 			await onSubmit({
 				name: name.trim(),
 				type,
-				required: type === "kanban_status" ? false : required,
-				mask: type === "kanban_status" ? null : mask.trim() || null,
+				required: type === "kanban_status" || type === "label" || type === "assignee" ? false : required,
+				mask: type === "kanban_status" || type === "label" || type === "assignee" ? null : mask.trim() || null,
 				options,
-				settings: finalKanbanOptions ? { options: finalKanbanOptions } : null,
+				settings: finalSettings,
 				highlight,
 			});
 
@@ -184,7 +198,7 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, on
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
-									{FIELD_TYPES.map((t) => (
+									\{[...FIELD_TYPES].sort((a, b) => a.localeCompare(b)).map((t) => (
 										<SelectItem key={t} value={t}>
 											{t.charAt(0).toUpperCase() + t.slice(1).replace("_", " ")}
 										</SelectItem>
@@ -209,6 +223,15 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, on
 								<div className="space-y-2 rounded-md border border-border p-3">
 									{kanbanOptions.map((opt, idx) => (
 										<div key={idx} className="flex items-center gap-2">
+											<IconPicker
+												value={opt.icon}
+												onChange={(icon) => {
+													const next = [...kanbanOptions];
+													next[idx] = { ...opt, icon: icon ?? "circle" };
+													setKanbanOptions(next);
+												}}
+												className="h-8 w-8 shrink-0"
+											/>
 											<Input
 												className="flex-1"
 												value={opt.label}
@@ -230,13 +253,16 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, on
 													setKanbanOptions(next);
 												}}
 											>
-												<SelectTrigger className="w-10">
-													<span className={`h-3 w-3 rounded-full ${COLOR_DOT[opt.color] || "bg-gray-400"}`} />
+												<SelectTrigger className="w-[4.5rem] shrink-0">
+													<span className={`inline-block h-3 w-3 shrink-0 rounded-full ${COLOR_DOT[opt.color] || "bg-gray-400"}`} />
 												</SelectTrigger>
 												<SelectContent position="popper">
 													{STATUS_COLORS.map((c) => (
 														<SelectItem key={c.id} value={c.id}>
-															<span className={`h-3 w-3 rounded-full ${COLOR_DOT[c.id]}`} />
+															<div className="flex items-center gap-2">
+																<span className={`inline-block h-3 w-3 shrink-0 rounded-full ${COLOR_DOT[c.id]}`} />
+																<span>{c.label}</span>
+															</div>
 														</SelectItem>
 													))}
 												</SelectContent>
@@ -276,7 +302,75 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, on
 								</div>
 							</div>
 						)}
-						{type !== "kanban_status" && (
+						{type === "label" && (
+							<div className="space-y-2">
+								<Label>Label Options</Label>
+								<div className="space-y-2 rounded-md border border-border p-3">
+									{labelOptions.map((opt, idx) => (
+										<div key={idx} className="flex items-center gap-2">
+											<Input
+												className="flex-1"
+												value={opt.label}
+												onChange={(e) => {
+													const next = [...labelOptions];
+													next[idx] = { ...opt, label: e.target.value };
+													setLabelOptions(next);
+												}}
+												placeholder="Label name"
+											/>
+											<Select
+												value={opt.color}
+												onValueChange={(color) => {
+													const next = [...labelOptions];
+													next[idx] = { ...opt, color };
+													setLabelOptions(next);
+												}}
+											>
+												<SelectTrigger className="w-[4.5rem] shrink-0">
+													<span className={`inline-block h-3 w-3 shrink-0 rounded-full ${COLOR_DOT[opt.color] || "bg-gray-400"}`} />
+												</SelectTrigger>
+												<SelectContent position="popper">
+													{STATUS_COLORS.map((c) => (
+														<SelectItem key={c.id} value={c.id}>
+															<div className="flex items-center gap-2">
+																<span className={`inline-block h-3 w-3 shrink-0 rounded-full ${COLOR_DOT[c.id]}`} />
+																<span>{c.label}</span>
+															</div>
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+											{labelOptions.length > 1 && (
+												<Button
+													type="button"
+													variant="ghost"
+													size="icon"
+													className="h-8 w-8 shrink-0"
+													onClick={() => setLabelOptions(labelOptions.filter((_, i) => i !== idx))}
+												>
+													<Trash2 className="h-3.5 w-3.5" />
+												</Button>
+											)}
+										</div>
+									))}
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										className="w-full"
+										onClick={() =>
+											setLabelOptions([
+												...labelOptions,
+												{ id: `label-${Date.now()}`, label: "", color: "gray", icon: null },
+											])
+										}
+									>
+										<Plus className="mr-1 h-3.5 w-3.5" /> Add label
+									</Button>
+								</div>
+							</div>
+						)}
+						{type !== "kanban_status" && type !== "label" && type !== "assignee" && (
 							<>
 								<div className="space-y-2">
 									<Label htmlFor="field-mask">Mask (regex, optional)</Label>

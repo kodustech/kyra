@@ -225,6 +225,7 @@ export function BlockRenderer({
 					fields={fields}
 					record={editingRecord}
 					open={!!editingRecord}
+					databaseId={databaseId}
 					onOpenChange={(open) => {
 						if (!open) setEditingRecord(null);
 					}}
@@ -280,6 +281,7 @@ export function BlockRenderer({
 				fields={fields}
 				records={records}
 				statusField={statusField}
+				databaseId={databaseId}
 				readOnly={readOnly}
 				onCreateRecord={async (data) => {
 					const record = await create(data);

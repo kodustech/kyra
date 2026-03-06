@@ -6,19 +6,32 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
-export function LoginPage() {
-	const { login } = useAuth();
+const DEFAULT_COLORS = [
+	"#6366f1",
+	"#f43f5e",
+	"#10b981",
+	"#f59e0b",
+	"#3b82f6",
+	"#8b5cf6",
+	"#ec4899",
+	"#14b8a6",
+];
+
+export function RegisterPage() {
+	const { register } = useAuth();
 	const navigate = useNavigate();
 
+	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
+	const [color, setColor] = useState(DEFAULT_COLORS[0]);
 	const [loading, setLoading] = useState(false);
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
 		setLoading(true);
 		try {
-			await login(email, password);
+			await register({ name, email, password, color });
 			navigate("/", { replace: true });
 		} catch (err) {
 			toast.error((err as Error).message);
@@ -32,14 +45,27 @@ export function LoginPage() {
 			<div className="w-full max-w-md space-y-6">
 				<div className="text-center">
 					<h1 className="text-3xl font-bold text-primary">Kyra</h1>
-					<p className="mt-2 text-sm text-muted-foreground">Sign in to your account.</p>
+					<p className="mt-2 text-sm text-muted-foreground">
+						Create your account. An administrator will approve your access.
+					</p>
 				</div>
 
 				<form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-border p-6">
 					<div className="space-y-2">
-						<Label htmlFor="login-email">Email</Label>
+						<Label htmlFor="register-name">Name</Label>
 						<Input
-							id="login-email"
+							id="register-name"
+							value={name}
+							onChange={(e) => setName(e.target.value)}
+							placeholder="Your name"
+							required
+						/>
+					</div>
+
+					<div className="space-y-2">
+						<Label htmlFor="register-email">Email</Label>
+						<Input
+							id="register-email"
 							type="email"
 							value={email}
 							onChange={(e) => setEmail(e.target.value)}
@@ -49,26 +75,44 @@ export function LoginPage() {
 					</div>
 
 					<div className="space-y-2">
-						<Label htmlFor="login-password">Password</Label>
+						<Label htmlFor="register-password">Password</Label>
 						<Input
-							id="login-password"
+							id="register-password"
 							type="password"
 							value={password}
 							onChange={(e) => setPassword(e.target.value)}
-							placeholder="Your password"
+							placeholder="At least 6 characters"
+							minLength={6}
 							required
 						/>
 					</div>
 
+					<div className="space-y-2">
+						<Label>Avatar Color</Label>
+						<div className="flex gap-2">
+							{DEFAULT_COLORS.map((c) => (
+								<button
+									key={c}
+									type="button"
+									onClick={() => setColor(c)}
+									className={`h-8 w-8 rounded-full transition-all ${
+										color === c ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""
+									}`}
+									style={{ backgroundColor: c }}
+								/>
+							))}
+						</div>
+					</div>
+
 					<Button type="submit" className="w-full" disabled={loading}>
-						{loading ? "Signing in..." : "Sign In"}
+						{loading ? "Creating..." : "Create Account"}
 					</Button>
 				</form>
 
 				<p className="text-center text-sm text-muted-foreground">
-					First time?{" "}
-					<Link to="/register" className="text-primary hover:underline">
-						Create an account
+					Already have an account?{" "}
+					<Link to="/login" className="text-primary hover:underline">
+						Sign in
 					</Link>
 				</p>
 			</div>

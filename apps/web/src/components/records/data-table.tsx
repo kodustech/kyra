@@ -7,6 +7,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { AssigneeCell } from "./assignee-cell";
 import type { Record as DbRecord, Field } from "@kyra/shared";
 import { Pencil, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -42,7 +43,8 @@ function formatCellValue(value: unknown, field: Field): ReactNode {
 			} catch {
 				return String(value);
 			}
-		case "kanban_status": {
+		case "kanban_status":
+		case "label": {
 			const opt = field.settings?.options?.find((o) => o.id === value);
 			if (opt) {
 				const colorClass = STATUS_COLOR_MAP[opt.color] || STATUS_COLOR_MAP.gray;
@@ -54,6 +56,8 @@ function formatCellValue(value: unknown, field: Field): ReactNode {
 			}
 			return String(value);
 		}
+		case "assignee":
+			return <AssigneeCell userId={String(value)} />;
 		default:
 			return String(value);
 	}

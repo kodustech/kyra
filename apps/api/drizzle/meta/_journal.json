@@ -8,6 +8,34 @@
       "when": 1772722361924,
       "tag": "0000_demonic_falcon",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772753253651,
+      "tag": "0001_unusual_thor_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772799853216,
+      "tag": "0002_lovely_millenium_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1772800205870,
+      "tag": "0003_bumpy_microbe",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772811063618,
+      "tag": "0004_sharp_genesis",
+      "breakpoints": true
     }
   ]
 }

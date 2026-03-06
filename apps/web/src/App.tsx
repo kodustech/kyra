@@ -8,6 +8,7 @@ import { LoginPage } from "@/pages/login";
 import { NotFound } from "@/pages/not-found";
 import { PageDetail } from "@/pages/page-detail";
 import { PublicPage } from "@/pages/public-page";
+import { RegisterPage } from "@/pages/register";
 import { SetupPage } from "@/pages/setup";
 import { UserManagement } from "@/pages/user-management";
 import { AuthProvider } from "@/providers/auth-provider";
@@ -26,6 +27,7 @@ export function App() {
 						<Route path="/p/:slug" element={<PublicPage />} />
 						<Route path="/setup" element={<SetupPage />} />
 						<Route path="/login" element={<LoginPage />} />
+						<Route path="/register" element={<RegisterPage />} />
 						<Route path="/invite/:token" element={<AcceptInvitePage />} />
 
 						{/* Protected routes */}

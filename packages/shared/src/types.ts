@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // ─── User Roles ─────────────────────────────────────────────────────────────────
 
-export const USER_ROLES = ["owner", "admin", "editor", "viewer"] as const;
+export const USER_ROLES = ["owner", "admin", "editor", "viewer", "pending"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export interface User {
@@ -100,7 +100,7 @@ export function canEditContent(role: UserRole): boolean {
 
 export function canManageRole(actorRole: UserRole, targetRole: UserRole): boolean {
 	if (actorRole === "owner") return true;
-	if (actorRole === "admin") return targetRole === "editor" || targetRole === "viewer";
+	if (actorRole === "admin") return targetRole === "editor" || targetRole === "viewer" || targetRole === "pending";
 	return false;
 }
 
@@ -139,6 +139,8 @@ export const FIELD_TYPES = [
 	"url",
 	"textarea",
 	"kanban_status",
+	"assignee",
+	"label",
 ] as const;
 
 export type FieldType = (typeof FIELD_TYPES)[number];
@@ -151,6 +153,8 @@ export interface KanbanStatusOption {
 	color: string;
 	icon: string | null;
 }
+
+export type LabelOption = KanbanStatusOption;
 
 // ─── Domain Types ───────────────────────────────────────────────────────────────
 
@@ -394,6 +398,46 @@ export type CreateBlockInput = z.infer<typeof createBlockSchema>;
 export type UpdateBlockInput = z.infer<typeof updateBlockSchema>;
 export type ReorderBlocksInput = z.infer<typeof reorderBlocksSchema>;
 
+// ─── Comments ───────────────────────────────────────────────────────────────────
+
+export interface Comment {
+	id: string;
+	recordId: string;
+	authorId: string;
+	content: string;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface CommentWithAuthor extends Comment {
+	author: { id: string; name: string; color: string };
+}
+
+export const createCommentSchema = z.object({
+	content: z.string().min(1, "Comment cannot be empty").max(10000),
+});
+
+export type CreateCommentInput = z.infer<typeof createCommentSchema>;
+
+// ─── Notifications ──────────────────────────────────────────────────────────────
+
+export interface Notification {
+	id: string;
+	userId: string;
+	type: string;
+	actorId: string;
+	commentId: string | null;
+	recordId: string | null;
+	databaseId: string | null;
+	recordTitle: string | null;
+	read: boolean;
+	createdAt: string;
+}
+
+export interface NotificationWithActor extends Notification {
+	actor: { id: string; name: string; color: string };
+}
+
 // ─── Dynamic Record Validator ───────────────────────────────────────────────────
 
 export function buildRecordValidator(fields: Field[]) {
@@ -435,12 +479,16 @@ export function buildRecordValidator(fields: Field[]) {
 				}
 				break;
 			case "kanban_status":
+			case "label":
 				if (field.settings?.options && field.settings.options.length > 0) {
 					const ids = field.settings.options.map((o) => o.id) as [string, ...string[]];
 					fieldSchema = z.enum(ids);
 				} else {
 					fieldSchema = z.string();
 				}
+				break;
+			case "assignee":
+				fieldSchema = z.string();
 				break;
 			default:
 				fieldSchema = z.string();

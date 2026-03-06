@@ -72,4 +72,12 @@ export {
 	type UpdateBlockInput,
 	type ReorderBlocksInput,
 	buildRecordValidator,
+	// Comments
+	type Comment,
+	type CommentWithAuthor,
+	createCommentSchema,
+	type CreateCommentInput,
+	// Notifications
+	type Notification,
+	type NotificationWithActor,
 } from "./types";

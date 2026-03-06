@@ -1,3 +1,4 @@
+import { CommentSection } from "@/components/comments/comment-section";
 import {
 	Dialog,
 	DialogContent,
@@ -5,6 +6,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import type { Record as DbRecord, Field } from "@kyra/shared";
 import { DynamicForm } from "./dynamic-form";
 
@@ -14,14 +16,15 @@ interface RecordDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	onSubmit: (data: { [fieldId: string]: unknown }) => Promise<void>;
+	databaseId?: string;
 }
 
-export function RecordDialog({ fields, record, open, onOpenChange, onSubmit }: RecordDialogProps) {
+export function RecordDialog({ fields, record, open, onOpenChange, onSubmit, databaseId }: RecordDialogProps) {
 	const isEdit = !!record;
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-h-[85vh] overflow-y-auto">
+			<DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
 				<DialogHeader>
 					<DialogTitle>{isEdit ? "Edit Record" : "New Record"}</DialogTitle>
 					<DialogDescription>
@@ -37,6 +40,12 @@ export function RecordDialog({ fields, record, open, onOpenChange, onSubmit }: R
 						submitLabel={isEdit ? "Save" : "Create"}
 					/>
 				</div>
+				{record && databaseId && (
+					<>
+						<Separator className="my-6" />
+						<CommentSection databaseId={databaseId} recordId={record.id} />
+					</>
+				)}
 			</DialogContent>
 		</Dialog>
 	);

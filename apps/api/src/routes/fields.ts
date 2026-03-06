@@ -52,25 +52,33 @@ fields.post("/", requireRole("owner", "admin"), async (c) => {
 
 	const nextPosition = last ? last.position + 1 : 0;
 
-	// Default settings for kanban_status
-	const settings =
-		body.type === "kanban_status" && !body.settings
-			? {
-					options: [
-						{ id: "todo", label: "To-do", color: "gray", icon: "circle" },
-						{ id: "in-progress", label: "In Progress", color: "blue", icon: "loader" },
-						{ id: "done", label: "Done", color: "green", icon: "circle-check" },
-					],
-				}
-			: (body.settings ?? null);
+	// Default settings for kanban_status and label
+	let settings = body.settings ?? null;
+	if (body.type === "kanban_status" && !body.settings) {
+		settings = {
+			options: [
+				{ id: "todo", label: "To-do", color: "gray", icon: "circle" },
+				{ id: "in-progress", label: "In Progress", color: "blue", icon: "loader" },
+				{ id: "done", label: "Done", color: "green", icon: "circle-check" },
+			],
+		};
+	} else if (body.type === "label" && !body.settings) {
+		settings = {
+			options: [
+				{ id: "bug", label: "Bug", color: "red", icon: null },
+				{ id: "feature", label: "Feature", color: "blue", icon: null },
+				{ id: "improvement", label: "Improvement", color: "green", icon: null },
+			],
+		};
+	}
 
 	const [data] = await db
 		.insert(fieldsTable)
 		.values({
 			name: body.name,
 			type: body.type,
-			required: body.type === "kanban_status" ? false : body.required,
-			mask: body.mask ?? null,
+			required: body.type === "kanban_status" || body.type === "label" || body.type === "assignee" ? false : body.required,
+			mask: body.type === "assignee" || body.type === "label" ? null : (body.mask ?? null),
 			options: body.options ?? null,
 			settings,
 			highlight: body.highlight ?? false,
@@ -120,22 +128,30 @@ fields.post("/bulk", requireRole("owner", "admin"), async (c) => {
 
 	// Build rows
 	const rows = inputs.map((input, index) => {
-		const settings =
-			input.type === "kanban_status" && !input.settings
-				? {
-						options: [
-							{ id: "todo", label: "To-do", color: "gray", icon: "circle" },
-							{ id: "in-progress", label: "In Progress", color: "blue", icon: "loader" },
-							{ id: "done", label: "Done", color: "green", icon: "circle-check" },
-						],
-					}
-				: (input.settings ?? null);
+		let settings = input.settings ?? null;
+		if (input.type === "kanban_status" && !input.settings) {
+			settings = {
+				options: [
+					{ id: "todo", label: "To-do", color: "gray", icon: "circle" },
+					{ id: "in-progress", label: "In Progress", color: "blue", icon: "loader" },
+					{ id: "done", label: "Done", color: "green", icon: "circle-check" },
+				],
+			};
+		} else if (input.type === "label" && !input.settings) {
+			settings = {
+				options: [
+					{ id: "bug", label: "Bug", color: "red", icon: null },
+					{ id: "feature", label: "Feature", color: "blue", icon: null },
+					{ id: "improvement", label: "Improvement", color: "green", icon: null },
+				],
+			};
+		}
 
 		return {
 			name: input.name,
 			type: input.type,
-			required: input.type === "kanban_status" ? false : input.required,
-			mask: input.mask ?? null,
+			required: input.type === "kanban_status" || input.type === "label" || input.type === "assignee" ? false : input.required,
+			mask: input.type === "assignee" || input.type === "label" ? null : (input.mask ?? null),
 			options: input.options ?? null,
 			settings,
 			highlight: input.highlight ?? false,

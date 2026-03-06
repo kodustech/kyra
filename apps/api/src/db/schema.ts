@@ -14,6 +14,8 @@ export const fieldTypeEnum = pgEnum("field_type", [
 	"url",
 	"textarea",
 	"kanban_status",
+	"assignee",
+	"label",
 ]);
 
 export const blockViewTypeEnum = pgEnum("block_view_type", [
@@ -28,6 +30,7 @@ export const userRoleEnum = pgEnum("user_role", [
 	"admin",
 	"editor",
 	"viewer",
+	"pending",
 ]);
 
 // ─── Users ──────────────────────────────────────────────────────────────────────
@@ -160,5 +163,44 @@ export const blocks = pgTable(
 		index("idx_blocks_page_id").on(t.pageId),
 		index("idx_blocks_database_id").on(t.databaseId),
 		index("idx_blocks_position").on(t.pageId, t.position),
+	],
+);
+
+// ─── Comments ──────────────────────────────────────────────────────────────────
+
+export const comments = pgTable(
+	"comments",
+	{
+		id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+		recordId: uuid("record_id").notNull().references(() => records.id, { onDelete: "cascade" }),
+		authorId: uuid("author_id").notNull().references(() => users.id),
+		content: text().notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		index("idx_comments_record_id").on(t.recordId),
+	],
+);
+
+// ─── Notifications ─────────────────────────────────────────────────────────────
+
+export const notifications = pgTable(
+	"notifications",
+	{
+		id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+		userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+		type: text().notNull(),
+		actorId: uuid("actor_id").notNull().references(() => users.id),
+		commentId: uuid("comment_id").references(() => comments.id, { onDelete: "cascade" }),
+		recordId: uuid("record_id").references(() => records.id, { onDelete: "cascade" }),
+		databaseId: uuid("database_id").references(() => databases.id, { onDelete: "cascade" }),
+		recordTitle: text("record_title"),
+		read: boolean().notNull().default(false),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		index("idx_notifications_user_id").on(t.userId),
+		index("idx_notifications_user_unread").on(t.userId, t.read),
 	],
 );

@@ -11,6 +11,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { canManageUsers } from "@kyra/shared";
 import { LogOut, Users } from "lucide-react";
 import { Link } from "react-router";
+import { NotificationPopover } from "./notification-popover";
 import { ThemeToggle } from "./theme-toggle";
 
 export function Header() {
@@ -21,6 +22,7 @@ export function Header() {
 			<h1 className="text-lg font-semibold text-primary">Kyra</h1>
 			<div className="flex items-center gap-2">
 				<ThemeToggle />
+				{user && <NotificationPopover />}
 				{user && (
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>

@@ -27,6 +27,7 @@ interface KanbanBoardProps {
 	fields: Field[];
 	records: DbRecord[];
 	statusField: Field;
+	databaseId?: string;
 	readOnly?: boolean;
 	onCreateRecord: (data: { [fieldId: string]: unknown }) => Promise<DbRecord>;
 	onUpdateRecord: (recordId: string, data: { [fieldId: string]: unknown }) => Promise<DbRecord>;
@@ -50,6 +51,7 @@ export function KanbanBoard({
 	fields,
 	records,
 	statusField,
+	databaseId,
 	readOnly,
 	onCreateRecord,
 	onUpdateRecord,
@@ -264,6 +266,7 @@ export function KanbanBoard({
 					fields={fields}
 					record={editingRecord}
 					open={!!editingRecord}
+					databaseId={databaseId}
 					onOpenChange={(open: boolean) => {
 						if (!open) setEditingRecord(null);
 					}}

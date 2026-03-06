@@ -8,6 +8,7 @@ import {
 	Calendar,
 	Camera,
 	ChartBar,
+	Circle,
 	CircleCheck,
 	Clipboard,
 	Clock,
@@ -29,6 +30,7 @@ import {
 	Image,
 	Key,
 	Lightbulb,
+	Loader,
 	Lock,
 	type LucideIcon,
 	Mail,
@@ -120,6 +122,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 	wrench: Wrench,
 	puzzle: Puzzle,
 	key: Key,
+	loader: Loader,
 	lock: Lock,
 	shield: Shield,
 	user: User,
@@ -141,6 +144,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 	"trending-up": TrendingUp,
 	target: Target,
 	lightbulb: Lightbulb,
+	circle: Circle,
 	"circle-check": CircleCheck,
 };
 

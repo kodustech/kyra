@@ -1,7 +1,21 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Record as DbRecord, Field } from "@kyra/shared";
-import { GripVertical } from "lucide-react";
+import { AssigneeCell } from "@/components/records/assignee-cell";
+import type { FieldType, Record as DbRecord, Field } from "@kyra/shared";
+import {
+	AlignLeft,
+	Calendar,
+	CheckSquare,
+	GripVertical,
+	Hash,
+	Link,
+	List,
+	Mail,
+	Phone,
+	Tag,
+	Type,
+	User,
+} from "lucide-react";
 
 interface KanbanCardProps {
 	record: DbRecord;
@@ -22,6 +36,21 @@ const STATUS_COLOR_MAP: Record<string, string> = {
 
 export { STATUS_COLOR_MAP };
 
+const FIELD_TYPE_ICONS: Record<FieldType, typeof Type> = {
+	text: Type,
+	number: Hash,
+	email: Mail,
+	phone: Phone,
+	date: Calendar,
+	select: List,
+	boolean: CheckSquare,
+	url: Link,
+	textarea: AlignLeft,
+	kanban_status: List,
+	assignee: User,
+	label: Tag,
+};
+
 export function KanbanCard({ record, highlightFields, onClick }: KanbanCardProps) {
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
 		id: record.id,
@@ -33,8 +62,8 @@ export function KanbanCard({ record, highlightFields, onClick }: KanbanCardProps
 		opacity: isDragging ? 0.5 : 1,
 	};
 
-	// Use first highlight field as title, rest as badges
-	const [titleField, ...badgeFields] = highlightFields;
+	// Use first highlight field as title, rest as preview
+	const [titleField, ...previewFields] = highlightFields;
 	const titleValue = titleField ? record.data[titleField.id] : undefined;
 
 	return (
@@ -61,14 +90,14 @@ export function KanbanCard({ record, highlightFields, onClick }: KanbanCardProps
 					{titleValue != null && titleValue !== "" && (
 						<p className="truncate text-sm font-medium">{String(titleValue)}</p>
 					)}
-					{badgeFields.length > 0 && (
-						<div className="mt-1.5 flex flex-wrap gap-1">
-							{badgeFields.map((field) => {
+					{previewFields.length > 0 && (
+						<div className="mt-1.5 space-y-1">
+							{previewFields.map((field) => {
 								const val = record.data[field.id];
 								if (val == null || val === "") return null;
 
-								// For kanban_status fields, show the label with color
-								if (field.type === "kanban_status" && field.settings?.options) {
+								// For kanban_status and label fields, show the label with color
+								if ((field.type === "kanban_status" || field.type === "label") && field.settings?.options) {
 									const opt = field.settings.options.find((o) => o.id === val);
 									if (opt) {
 										const colorClass = STATUS_COLOR_MAP[opt.color] || STATUS_COLOR_MAP.gray;
@@ -83,13 +112,25 @@ export function KanbanCard({ record, highlightFields, onClick }: KanbanCardProps
 									}
 								}
 
+								// For assignee fields, show avatar + name
+								if (field.type === "assignee") {
+									return (
+										<div key={field.id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+											<AssigneeCell userId={String(val)} />
+										</div>
+									);
+								}
+
+								const Icon = FIELD_TYPE_ICONS[field.type] || Type;
+
 								return (
-									<span
+									<div
 										key={field.id}
-										className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+										className="flex items-center gap-1.5 text-xs text-muted-foreground"
 									>
-										{String(val)}
-									</span>
+										<Icon className="h-3 w-3 shrink-0" />
+										<span className="truncate">{String(val)}</span>
+									</div>
 								);
 							})}
 						</div>

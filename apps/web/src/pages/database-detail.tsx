@@ -237,6 +237,7 @@ export function DatabaseDetail() {
 				fields={fields}
 				record={editRecord}
 				open={!!editRecord}
+				databaseId={databaseId}
 				onOpenChange={(o) => !o && setEditRecord(null)}
 				onSubmit={handleUpdate}
 			/>

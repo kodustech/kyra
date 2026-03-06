@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { api } from "@/lib/api";
 import { useAuth } from "@/providers/auth-provider";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -26,6 +27,14 @@ export function SetupPage() {
 	const [password, setPassword] = useState("");
 	const [color, setColor] = useState(DEFAULT_COLORS[0]);
 	const [loading, setLoading] = useState(false);
+
+	useEffect(() => {
+		api.get<{ needsSetup: boolean }>("/auth/setup/status").then((res) => {
+			if (!res.needsSetup) {
+				navigate("/login", { replace: true });
+			}
+		});
+	}, [navigate]);
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();

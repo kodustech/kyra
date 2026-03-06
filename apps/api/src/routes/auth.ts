@@ -63,6 +63,41 @@ auth.post("/setup", async (c) => {
 	return c.json({ user, token }, 201);
 });
 
+// ─── Register (self-registration, pending approval) ────────────────────────────
+
+auth.post("/register", async (c) => {
+	const parsed = await parseBody(c, setupSchema);
+	if ("error" in parsed) return parsed.error;
+
+	const { name, email, password, color } = parsed.data;
+
+	// Check if email already in use
+	const [existing] = await db
+		.select({ id: users.id })
+		.from(users)
+		.where(and(eq(users.email, email), isNull(users.deletedAt)));
+
+	if (existing) {
+		return c.json({ error: "A user with this email already exists" }, 409);
+	}
+
+	const passwordHash = await hashPassword(password);
+
+	const [user] = await db
+		.insert(users)
+		.values({ name, email, passwordHash, role: "pending", color })
+		.returning({
+			id: users.id,
+			name: users.name,
+			email: users.email,
+			role: users.role,
+			color: users.color,
+		});
+
+	const token = signToken(user);
+	return c.json({ user, token }, 201);
+});
+
 // ─── Login ──────────────────────────────────────────────────────────────────────
 
 auth.post("/login", async (c) => {
@@ -276,6 +311,22 @@ auth.post("/invite/:token/accept", async (c) => {
 	}
 });
 
+// ─── User List (lightweight, any authenticated user) ─────────────────────────
+
+auth.get("/users/list", authMiddleware, async (c) => {
+	const data = await db
+		.select({
+			id: users.id,
+			name: users.name,
+			color: users.color,
+		})
+		.from(users)
+		.where(and(isNull(users.deletedAt), sql`${users.role} != 'pending'`))
+		.orderBy(asc(users.createdAt));
+
+	return c.json(data);
+});
+
 // ─── User Management ────────────────────────────────────────────────────────────
 
 auth.get("/users", authMiddleware, requireRole("owner", "admin"), async (c) => {
@@ -283,9 +334,9 @@ auth.get("/users", authMiddleware, requireRole("owner", "admin"), async (c) => {
 
 	const conditions = [isNull(users.deletedAt)];
 
-	// Admin can only see editors and viewers
+	// Admin can only see editors, viewers, and pending
 	if (user.role === "admin") {
-		conditions.push(inArray(users.role, ["editor", "viewer"]));
+		conditions.push(inArray(users.role, ["editor", "viewer", "pending"]));
 	}
 
 	const data = await db
