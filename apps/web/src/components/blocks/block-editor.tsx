@@ -20,15 +20,19 @@ export function BlockEditor({ pageId }: BlockEditorProps) {
 	const [richTextContents, setRichTextContents] = useState<Record<string, string>>({});
 	const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-	// Initialize richtext content from blocks
+	// Initialize richtext content from blocks (only for new blocks, never overwrite local edits)
 	useEffect(() => {
-		const initial: Record<string, string> = {};
-		for (const block of blocks) {
-			if (block.viewType === "richtext") {
-				initial[block.id] = block.content ?? "";
+		setRichTextContents((prev) => {
+			let changed = false;
+			const next = { ...prev };
+			for (const block of blocks) {
+				if (block.viewType === "richtext" && !(block.id in next)) {
+					next[block.id] = block.content ?? "";
+					changed = true;
+				}
 			}
-		}
-		setRichTextContents(initial);
+			return changed ? next : prev;
+		});
 	}, [blocks]);
 
 	const handleRichTextChange = useCallback(

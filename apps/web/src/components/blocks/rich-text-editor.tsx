@@ -42,6 +42,7 @@ interface RichTextEditorProps {
 export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
 	const onChangeRef = useRef(onChange);
 	onChangeRef.current = onChange;
+	const userEditedRef = useRef(false);
 
 	const editor = useEditor({
 		extensions: [
@@ -59,18 +60,14 @@ export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
 		],
 		content,
 		onUpdate: ({ editor }) => {
+			userEditedRef.current = true;
 			onChangeRef.current(editor.getHTML());
 		},
 	});
 
-	// Sync external content changes (e.g. initial load)
-	const isFirstRender = useRef(true);
+	// Sync external content only on initial load (before user starts editing)
 	useEffect(() => {
-		if (!editor) return;
-		if (isFirstRender.current) {
-			isFirstRender.current = false;
-			return;
-		}
+		if (!editor || userEditedRef.current) return;
 		const currentHTML = editor.getHTML();
 		if (content !== currentHTML) {
 			editor.commands.setContent(content, { emitUpdate: false });
