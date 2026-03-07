@@ -455,6 +455,32 @@ export const createApiKeySchema = z.object({
 
 export type CreateApiKeyInput = z.infer<typeof createApiKeySchema>;
 
+// ─── Webhooks ───────────────────────────────────────────────────────────────
+
+export interface Webhook {
+	id: string;
+	name: string;
+	url: string;
+	active: boolean;
+	createdBy: string;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export const createWebhookSchema = z.object({
+	name: z.string().min(1, "Name is required").max(255),
+	url: z.string().url("Invalid URL"),
+});
+
+export const updateWebhookSchema = z.object({
+	name: z.string().min(1).max(255).optional(),
+	url: z.string().url("Invalid URL").optional(),
+	active: z.boolean().optional(),
+});
+
+export type CreateWebhookInput = z.infer<typeof createWebhookSchema>;
+export type UpdateWebhookInput = z.infer<typeof updateWebhookSchema>;
+
 // ─── Dynamic Record Validator ───────────────────────────────────────────────────
 
 export function buildRecordValidator(fields: Field[]) {

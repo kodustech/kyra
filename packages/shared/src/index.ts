@@ -84,4 +84,10 @@ export {
 	type ApiKey,
 	createApiKeySchema,
 	type CreateApiKeyInput,
+	// Webhooks
+	type Webhook,
+	createWebhookSchema,
+	updateWebhookSchema,
+	type CreateWebhookInput,
+	type UpdateWebhookInput,
 } from "./types";

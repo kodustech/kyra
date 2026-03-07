@@ -3,7 +3,8 @@ import { asc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AppEnv } from "../lib/auth";
 import { db } from "../db";
-import { comments, notifications, records, fields as fieldsTable, users } from "../db/schema";
+import { comments, notifications, records, fields as fieldsTable, users, databases as databasesTable } from "../db/schema";
+import { dispatchWebhooks } from "../lib/webhook";
 
 export const commentsRoutes = new Hono<AppEnv>();
 
@@ -104,6 +105,14 @@ commentsRoutes.post("/", async (c) => {
 
 		await db.insert(notifications).values(notifValues);
 	}
+
+	// Dispatch webhook
+	const [database] = await db.select({ name: databasesTable.name }).from(databasesTable).where(eq(databasesTable.id, databaseId));
+	dispatchWebhooks("comment.created", {
+		database: { id: databaseId, name: database?.name },
+		record: { id: recordId },
+		comment: { ...comment, author: { id: user.id, name: user.name } },
+	});
 
 	// Return comment with author info
 	return c.json(

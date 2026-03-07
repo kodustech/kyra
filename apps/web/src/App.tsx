@@ -12,6 +12,7 @@ import { RegisterPage } from "@/pages/register";
 import { SetupPage } from "@/pages/setup";
 import { ApiKeysPage } from "@/pages/api-keys";
 import { UserManagement } from "@/pages/user-management";
+import { WebhooksPage } from "@/pages/webhooks";
 import { AuthProvider } from "@/providers/auth-provider";
 import { DatabasesProvider } from "@/providers/databases-provider";
 import { PagesProvider } from "@/providers/pages-provider";
@@ -47,6 +48,7 @@ export function App() {
 								<Route path="/databases/:databaseId" element={<DatabaseDetail />} />
 								<Route path="/settings/users" element={<UserManagement />} />
 								<Route path="/settings/api-keys" element={<ApiKeysPage />} />
+								<Route path="/settings/webhooks" element={<WebhooksPage />} />
 								<Route path="*" element={<NotFound />} />
 							</Route>
 						</Route>

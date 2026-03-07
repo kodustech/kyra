@@ -12,6 +12,7 @@ import { notificationsRoutes } from "./routes/notifications";
 import { pages } from "./routes/pages";
 import { publicRoutes } from "./routes/public";
 import { records } from "./routes/records";
+import { webhooksRoutes } from "./routes/webhooks";
 
 export const app = new Hono<AppEnv>();
 
@@ -27,6 +28,7 @@ app.use("/databases/*", authMiddleware);
 app.use("/pages/*", authMiddleware);
 app.use("/notifications/*", authMiddleware);
 app.use("/api-keys/*", authMiddleware);
+app.use("/webhooks/*", authMiddleware);
 
 app.route("/databases", databases);
 app.route("/databases/:databaseId/fields", fields);
@@ -36,3 +38,4 @@ app.route("/pages", pages);
 app.route("/pages/:pageId/blocks", blocks);
 app.route("/notifications", notificationsRoutes);
 app.route("/api-keys", apiKeysRoutes);
+app.route("/webhooks", webhooksRoutes);

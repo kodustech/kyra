@@ -202,6 +202,24 @@ export const apiKeys = pgTable(
 	],
 );
 
+// ─── Webhooks ──────────────────────────────────────────────────────────────────
+
+export const webhooks = pgTable(
+	"webhooks",
+	{
+		id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+		name: text().notNull(),
+		url: text().notNull(),
+		active: boolean().notNull().default(true),
+		createdBy: uuid("created_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		index("idx_webhooks_active").on(t.active),
+	],
+);
+
 // ─── Notifications ─────────────────────────────────────────────────────────────
 
 export const notifications = pgTable(

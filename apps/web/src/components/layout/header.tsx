@@ -9,7 +9,7 @@ import {
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { useAuth } from "@/providers/auth-provider";
 import { canManageUsers } from "@kyra/shared";
-import { Key, LogOut, Users } from "lucide-react";
+import { Key, LogOut, Users, Webhook } from "lucide-react";
 import { Link } from "react-router";
 import { NotificationPopover } from "./notification-popover";
 import { ThemeToggle } from "./theme-toggle";
@@ -48,6 +48,12 @@ export function Header() {
 								<Link to="/settings/api-keys">
 									<Key className="mr-2 h-4 w-4" />
 									API Keys
+								</Link>
+							</DropdownMenuItem>
+							<DropdownMenuItem asChild>
+								<Link to="/settings/webhooks">
+									<Webhook className="mr-2 h-4 w-4" />
+									Webhooks
 								</Link>
 							</DropdownMenuItem>
 							<DropdownMenuSeparator />
