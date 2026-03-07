@@ -10,6 +10,7 @@ import { PageDetail } from "@/pages/page-detail";
 import { PublicPage } from "@/pages/public-page";
 import { RegisterPage } from "@/pages/register";
 import { SetupPage } from "@/pages/setup";
+import { ApiKeysPage } from "@/pages/api-keys";
 import { UserManagement } from "@/pages/user-management";
 import { AuthProvider } from "@/providers/auth-provider";
 import { DatabasesProvider } from "@/providers/databases-provider";
@@ -45,6 +46,7 @@ export function App() {
 								<Route path="/pages/:pageId" element={<PageDetail />} />
 								<Route path="/databases/:databaseId" element={<DatabaseDetail />} />
 								<Route path="/settings/users" element={<UserManagement />} />
+								<Route path="/settings/api-keys" element={<ApiKeysPage />} />
 								<Route path="*" element={<NotFound />} />
 							</Route>
 						</Route>

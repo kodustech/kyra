@@ -438,6 +438,23 @@ export interface NotificationWithActor extends Notification {
 	actor: { id: string; name: string; color: string };
 }
 
+// ─── API Keys ───────────────────────────────────────────────────────────────
+
+export interface ApiKey {
+	id: string;
+	userId: string;
+	name: string;
+	keyPrefix: string;
+	lastUsedAt: string | null;
+	createdAt: string;
+}
+
+export const createApiKeySchema = z.object({
+	name: z.string().min(1, "Name is required").max(255),
+});
+
+export type CreateApiKeyInput = z.infer<typeof createApiKeySchema>;
+
 // ─── Dynamic Record Validator ───────────────────────────────────────────────────
 
 export function buildRecordValidator(fields: Field[]) {

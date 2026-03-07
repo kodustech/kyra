@@ -80,4 +80,8 @@ export {
 	// Notifications
 	type Notification,
 	type NotificationWithActor,
+	// API Keys
+	type ApiKey,
+	createApiKeySchema,
+	type CreateApiKeyInput,
 } from "./types";

@@ -1,10 +1,11 @@
 import type { AuthUser, UserRole } from "@kyra/shared";
+import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { eq, and, isNull } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
 import jwt from "jsonwebtoken";
 import { db } from "../db";
-import { users } from "../db/schema";
+import { users, apiKeys } from "../db/schema";
 
 const JWT_SECRET = process.env.JWT_SECRET || "kyra-dev-secret";
 const JWT_EXPIRES_IN = "7d";
@@ -53,6 +54,46 @@ export const authMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
 	}
 
 	const token = header.slice(7);
+
+	// API Key auth: tokens starting with "kyra_"
+	if (token.startsWith("kyra_")) {
+		const keyHash = crypto.createHash("sha256").update(token).digest("hex");
+
+		const [apiKey] = await db
+			.select({ userId: apiKeys.userId, id: apiKeys.id })
+			.from(apiKeys)
+			.where(eq(apiKeys.keyHash, keyHash));
+
+		if (!apiKey) {
+			return c.json({ error: "Invalid API key" }, 401);
+		}
+
+		const [user] = await db
+			.select({
+				id: users.id,
+				name: users.name,
+				email: users.email,
+				role: users.role,
+				color: users.color,
+			})
+			.from(users)
+			.where(and(eq(users.id, apiKey.userId), isNull(users.deletedAt)));
+
+		if (!user) {
+			return c.json({ error: "User not found" }, 401);
+		}
+
+		// Update last used (fire and forget)
+		db.update(apiKeys)
+			.set({ lastUsedAt: new Date() })
+			.where(eq(apiKeys.id, apiKey.id))
+			.then(() => {});
+
+		c.set("user", user as AuthUser);
+		return next();
+	}
+
+	// JWT auth
 	let payload: JwtPayload;
 	try {
 		payload = verifyToken(token);

@@ -183,6 +183,25 @@ export const comments = pgTable(
 	],
 );
 
+// ─── API Keys ──────────────────────────────────────────────────────────────────
+
+export const apiKeys = pgTable(
+	"api_keys",
+	{
+		id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+		userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+		name: text().notNull(),
+		keyHash: text("key_hash").notNull(),
+		keyPrefix: text("key_prefix").notNull(),
+		lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		index("idx_api_keys_user_id").on(t.userId),
+		index("idx_api_keys_key_hash").on(t.keyHash),
+	],
+);
+
 // ─── Notifications ─────────────────────────────────────────────────────────────
 
 export const notifications = pgTable(
