@@ -81,11 +81,19 @@ auth.post("/register", async (c) => {
 		return c.json({ error: "A user with this email already exists" }, 409);
 	}
 
+	// Check if this is the first user BEFORE hashing (to avoid race conditions)
+	const [anyUser] = await db
+		.select({ id: users.id })
+		.from(users)
+		.limit(1);
+
+	const isFirstUser = !anyUser;
+
 	const passwordHash = await hashPassword(password);
 
 	const [user] = await db
 		.insert(users)
-		.values({ name, email, passwordHash, role: "pending", color })
+		.values({ name, email, passwordHash, role: isFirstUser ? "owner" : "pending", color })
 		.returning({
 			id: users.id,
 			name: users.name,

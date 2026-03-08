@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import type { ApiKey } from "@kyra/shared";
-import { Check, Copy, Key, Plus, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Check, ChevronDown, Copy, Key, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -136,6 +137,9 @@ export function ApiKeysPage() {
 				</div>
 			)}
 
+			{/* API Reference */}
+			<EndpointsReference />
+
 			{/* Create dialog */}
 			<CreateApiKeyDialog
 				open={showCreate}
@@ -186,6 +190,122 @@ export function ApiKeysPage() {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+		</div>
+	);
+}
+
+// ─── Endpoints Reference ────────────────────────────────────────────────────
+
+const ENDPOINT_GROUPS = [
+	{
+		title: "Databases",
+		endpoints: [
+			{ method: "GET", path: "/api/databases", description: "List all databases" },
+			{ method: "GET", path: "/api/databases/:id", description: "Get database by ID" },
+			{ method: "POST", path: "/api/databases", description: "Create a new database" },
+			{ method: "PATCH", path: "/api/databases/:id", description: "Update a database" },
+			{ method: "DELETE", path: "/api/databases/:id", description: "Delete a database" },
+		],
+	},
+	{
+		title: "Fields",
+		endpoints: [
+			{ method: "GET", path: "/api/databases/:databaseId/fields", description: "List fields of a database" },
+			{ method: "POST", path: "/api/databases/:databaseId/fields", description: "Create a field" },
+			{ method: "PATCH", path: "/api/databases/:databaseId/fields/:fieldId", description: "Update a field" },
+			{ method: "DELETE", path: "/api/databases/:databaseId/fields/:fieldId", description: "Delete a field" },
+		],
+	},
+	{
+		title: "Records",
+		endpoints: [
+			{ method: "GET", path: "/api/databases/:databaseId/records", description: "List records (paginated: ?page=1&limit=50)" },
+			{ method: "POST", path: "/api/databases/:databaseId/records", description: "Create a record" },
+			{ method: "PATCH", path: "/api/databases/:databaseId/records/:recordId", description: "Update a record" },
+			{ method: "DELETE", path: "/api/databases/:databaseId/records/:recordId", description: "Delete a record" },
+		],
+	},
+	{
+		title: "Comments",
+		endpoints: [
+			{ method: "GET", path: "/api/databases/:databaseId/records/:recordId/comments", description: "List comments on a record" },
+			{ method: "POST", path: "/api/databases/:databaseId/records/:recordId/comments", description: "Create a comment" },
+			{ method: "DELETE", path: "/api/databases/:databaseId/records/:recordId/comments/:commentId", description: "Delete a comment" },
+		],
+	},
+	{
+		title: "Pages",
+		endpoints: [
+			{ method: "GET", path: "/api/pages", description: "List all pages" },
+			{ method: "POST", path: "/api/pages", description: "Create a page" },
+			{ method: "PATCH", path: "/api/pages/:id", description: "Update a page" },
+			{ method: "DELETE", path: "/api/pages/:id", description: "Delete a page" },
+		],
+	},
+	{
+		title: "Webhooks",
+		endpoints: [
+			{ method: "GET", path: "/api/webhooks", description: "List all webhooks" },
+			{ method: "POST", path: "/api/webhooks", description: "Create a webhook" },
+			{ method: "PATCH", path: "/api/webhooks/:id", description: "Update a webhook (enable/disable)" },
+			{ method: "DELETE", path: "/api/webhooks/:id", description: "Delete a webhook" },
+		],
+	},
+];
+
+const METHOD_COLORS: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+	GET: "secondary",
+	POST: "default",
+	PATCH: "outline",
+	DELETE: "destructive",
+};
+
+function EndpointsReference() {
+	const [open, setOpen] = useState(false);
+
+	return (
+		<div className="mt-8">
+			<button
+				type="button"
+				onClick={() => setOpen((v) => !v)}
+				className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-foreground/80 transition-colors"
+			>
+				<ChevronDown className={`h-4 w-4 transition-transform ${open ? "" : "-rotate-90"}`} />
+				API Reference
+			</button>
+
+			{open && (
+				<div className="mt-4 space-y-6">
+					<div className="rounded-lg border border-border bg-muted/30 p-4">
+						<p className="text-sm text-muted-foreground">
+							Base URL: <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{window.location.origin}/api</code>
+						</p>
+						<p className="mt-1 text-sm text-muted-foreground">
+							Auth header: <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">Authorization: Bearer your_api_key</code>
+						</p>
+					</div>
+
+					{ENDPOINT_GROUPS.map((group) => (
+						<div key={group.title}>
+							<h4 className="mb-2 text-sm font-medium text-foreground">{group.title}</h4>
+							<div className="rounded-xl border border-border">
+								{group.endpoints.map((ep, i) => (
+									<div
+										key={`${ep.method}-${ep.path}`}
+										className={`flex items-center gap-3 px-4 py-2.5 ${i < group.endpoints.length - 1 ? "border-b border-border" : ""}`}
+									>
+										<Badge variant={METHOD_COLORS[ep.method]} className="w-16 justify-center text-xs font-mono">
+											{ep.method}
+										</Badge>
+										<code className="text-xs font-mono text-muted-foreground">{ep.path}</code>
+										<span className="ml-auto text-xs text-muted-foreground">{ep.description}</span>
+									</div>
+								))}
+							</div>
+						</div>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }
