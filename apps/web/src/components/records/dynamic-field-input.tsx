@@ -9,6 +9,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { AssigneeSelect } from "./assignee-select";
+import { LookupSelect } from "./lookup-select";
 import type { Field } from "@kyra/shared";
 
 interface DynamicFieldInputProps {
@@ -21,6 +22,8 @@ export function DynamicFieldInput({ field, value, onChange }: DynamicFieldInputP
 	const strVal = value == null ? "" : String(value);
 
 	switch (field.type) {
+		case "lookup":
+			return <LookupSelect field={field} value={strVal} onChange={onChange} />;
 		case "assignee":
 			return <AssigneeSelect value={strVal} onChange={onChange} placeholder={`Select ${field.name}`} />;
 		case "label":

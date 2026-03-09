@@ -58,6 +58,9 @@ function formatCellValue(value: unknown, field: Field): ReactNode {
 		}
 		case "assignee":
 			return <AssigneeCell userId={String(value)} />;
+		case "lookup":
+			// Value is stored as an ID or field value; display as-is for now
+			return String(value);
 		default:
 			return String(value);
 	}

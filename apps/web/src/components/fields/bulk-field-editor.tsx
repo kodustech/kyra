@@ -352,7 +352,10 @@ function SortableBulkRow({
 							<SelectItem
 								key={ft}
 								value={ft}
-								disabled={ft === "kanban_status" && kanbanDisabled && row.type !== "kanban_status"}
+								disabled={
+									(ft === "kanban_status" && kanbanDisabled && row.type !== "kanban_status") ||
+									ft === "lookup"
+								}
 							>
 								{ft.replace(/_/g, " ")}
 							</SelectItem>

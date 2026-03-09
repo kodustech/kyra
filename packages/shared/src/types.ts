@@ -141,6 +141,7 @@ export const FIELD_TYPES = [
 	"kanban_status",
 	"assignee",
 	"label",
+	"lookup",
 ] as const;
 
 export type FieldType = (typeof FIELD_TYPES)[number];
@@ -155,6 +156,24 @@ export interface KanbanStatusOption {
 }
 
 export type LabelOption = KanbanStatusOption;
+
+// ─── Lookup Settings ────────────────────────────────────────────────────────────
+
+export const LOOKUP_OPERATORS = ["eq", "neq", "gt", "lt", "gte", "lte", "contains", "is_null", "is_not_null"] as const;
+export type LookupOperator = (typeof LOOKUP_OPERATORS)[number];
+
+export interface LookupFilter {
+	fieldId: string;
+	operator: LookupOperator;
+	value: string;
+}
+
+export interface LookupSettings {
+	sourceDatabaseId: string;
+	displayFieldId: string;
+	valueFieldId?: string;
+	filters: LookupFilter[];
+}
 
 // ─── Domain Types ───────────────────────────────────────────────────────────────
 
@@ -176,6 +195,7 @@ export interface Field {
 	mask: string | null;
 	options: string[] | null;
 	settings: { options: KanbanStatusOption[] } | null;
+	lookupSettings: LookupSettings | null;
 	highlight: boolean;
 	position: number;
 	createdAt: string;
@@ -258,6 +278,19 @@ export const kanbanStatusOptionSchema = z.object({
 	icon: z.string().nullable(),
 });
 
+export const lookupFilterSchema = z.object({
+	fieldId: z.string().uuid(),
+	operator: z.enum(LOOKUP_OPERATORS),
+	value: z.string(),
+});
+
+export const lookupSettingsSchema = z.object({
+	sourceDatabaseId: z.string().uuid(),
+	displayFieldId: z.string().uuid(),
+	valueFieldId: z.string().uuid().optional(),
+	filters: z.array(lookupFilterSchema),
+});
+
 export const createFieldSchema = z
 	.object({
 		name: z.string().min(1, "Name is required").max(255),
@@ -266,6 +299,7 @@ export const createFieldSchema = z
 		mask: z.string().max(255).nullable().optional(),
 		options: z.array(z.string()).nullable().optional(),
 		settings: z.object({ options: z.array(kanbanStatusOptionSchema) }).nullable().optional(),
+		lookupSettings: lookupSettingsSchema.nullable().optional(),
 		highlight: z.boolean().default(false),
 	})
 	.refine(
@@ -276,6 +310,15 @@ export const createFieldSchema = z
 			return true;
 		},
 		{ message: "Select fields must have at least one option", path: ["options"] },
+	)
+	.refine(
+		(data) => {
+			if (data.type === "lookup") {
+				return data.lookupSettings != null;
+			}
+			return true;
+		},
+		{ message: "Lookup fields must have lookup settings configured", path: ["lookupSettings"] },
 	);
 
 export const updateFieldSchema = z
@@ -286,6 +329,7 @@ export const updateFieldSchema = z
 		mask: z.string().max(255).nullable().optional(),
 		options: z.array(z.string()).nullable().optional(),
 		settings: z.object({ options: z.array(kanbanStatusOptionSchema) }).nullable().optional(),
+		lookupSettings: lookupSettingsSchema.nullable().optional(),
 		highlight: z.boolean().optional(),
 	})
 	.refine(
@@ -296,6 +340,15 @@ export const updateFieldSchema = z
 			return true;
 		},
 		{ message: "Select fields must have at least one option", path: ["options"] },
+	)
+	.refine(
+		(data) => {
+			if (data.type === "lookup" && data.lookupSettings === undefined) {
+				return false;
+			}
+			return true;
+		},
+		{ message: "Lookup fields must have lookup settings configured", path: ["lookupSettings"] },
 	);
 
 export const reorderFieldsSchema = z.object({
@@ -529,6 +582,9 @@ export function buildRecordValidator(fields: Field[]) {
 				} else {
 					fieldSchema = z.string();
 				}
+				break;
+			case "lookup":
+				fieldSchema = z.string();
 				break;
 			case "assignee":
 				fieldSchema = z.string();

@@ -16,6 +16,7 @@ export const fieldTypeEnum = pgEnum("field_type", [
 	"kanban_status",
 	"assignee",
 	"label",
+	"lookup",
 ]);
 
 export const blockViewTypeEnum = pgEnum("block_view_type", [
@@ -98,6 +99,12 @@ export const fields = pgTable(
 		mask: text(),
 		options: jsonb().$type<string[] | null>(),
 		settings: jsonb().$type<{ options: { id: string; label: string; color: string; icon: string | null }[] } | null>(),
+		lookupSettings: jsonb("lookup_settings").$type<{
+			sourceDatabaseId: string;
+			displayFieldId: string;
+			valueFieldId?: string;
+			filters: { fieldId: string; operator: string; value: string }[];
+		} | null>(),
 		highlight: boolean().notNull().default(false),
 		position: integer().notNull().default(0),
 		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

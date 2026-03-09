@@ -8,8 +8,9 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { useFields } from "@/hooks/use-fields";
-import type { CreateFieldInput, Field, FieldType, KanbanStatusOption } from "@kyra/shared";
-import { Columns3, Plus } from "lucide-react";
+import { useDatabases } from "@/hooks/use-databases";
+import type { CreateFieldInput, Field, FieldType, KanbanStatusOption, LookupSettings } from "@kyra/shared";
+import { Columns3, Plus, Search } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { BulkFieldEditor } from "./bulk-field-editor";
@@ -21,8 +22,10 @@ interface FieldEditorProps {
 }
 
 export function FieldEditor({ databaseId }: FieldEditorProps) {
+	const { databases } = useDatabases();
 	const { fields, loading, create, bulkCreate, update, remove, reorder } = useFields(databaseId);
 	const [showAdd, setShowAdd] = useState(false);
+	const [showCreateSingle, setShowCreateSingle] = useState(false);
 	const [editField, setEditField] = useState<Field | null>(null);
 	const [deleteField, setDeleteField] = useState<Field | null>(null);
 	const [deleting, setDeleting] = useState(false);
@@ -33,6 +36,21 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 		await bulkCreate(inputs);
 	}
 
+	async function handleCreate(data: {
+		name: string;
+		type: FieldType;
+		required: boolean;
+		mask: string | null;
+		options: string[] | null;
+		settings?: { options: KanbanStatusOption[] } | null;
+		lookupSettings?: LookupSettings | null;
+		highlight?: boolean;
+	}) {
+		await create({ ...data, highlight: data.highlight ?? false });
+		toast.success("Field created");
+		setShowCreateSingle(false);
+	}
+
 	async function handleUpdate(data: {
 		name: string;
 		type: FieldType;
@@ -40,6 +58,7 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 		mask: string | null;
 		options: string[] | null;
 		settings?: { options: KanbanStatusOption[] } | null;
+		lookupSettings?: LookupSettings | null;
 		highlight?: boolean;
 	}) {
 		if (!editField) return;
@@ -78,9 +97,14 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 		<div>
 			<div className="mb-4 flex items-center justify-between">
 				<h3 className="text-lg font-medium">Fields</h3>
-				<Button size="sm" onClick={() => setShowAdd(true)}>
-					<Plus className="mr-2 h-4 w-4" /> Add Field
-				</Button>
+				<div className="flex gap-2">
+					<Button size="sm" variant="outline" onClick={() => setShowCreateSingle(true)}>
+						<Search className="mr-2 h-4 w-4" /> Add Lookup
+					</Button>
+					<Button size="sm" onClick={() => setShowAdd(true)}>
+						<Plus className="mr-2 h-4 w-4" /> Add Field
+					</Button>
+				</div>
 			</div>
 
 			{fields.length === 0 ? (
@@ -106,10 +130,23 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 			<BulkFieldEditor open={showAdd} onOpenChange={setShowAdd} hasKanbanStatus={hasKanbanStatus} onSave={handleBulkCreate} />
 
 			<FieldFormDialog
+				field={null}
+				open={showCreateSingle}
+				onOpenChange={setShowCreateSingle}
+				hasKanbanStatus={hasKanbanStatus}
+				defaultType="lookup"
+				databases={databases}
+				currentDatabaseId={databaseId}
+				onSubmit={handleCreate}
+			/>
+
+			<FieldFormDialog
 				field={editField}
 				open={!!editField}
 				onOpenChange={(o) => !o && setEditField(null)}
 				hasKanbanStatus={hasKanbanStatus}
+				databases={databases}
+				currentDatabaseId={databaseId}
 				onSubmit={handleUpdate}
 			/>
 

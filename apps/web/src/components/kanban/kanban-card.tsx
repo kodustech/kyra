@@ -12,6 +12,7 @@ import {
 	List,
 	Mail,
 	Phone,
+	Search,
 	Tag,
 	Type,
 	User,
@@ -49,6 +50,7 @@ const FIELD_TYPE_ICONS: Record<FieldType, typeof Type> = {
 	kanban_status: List,
 	assignee: User,
 	label: Tag,
+	lookup: Search,
 };
 
 export function KanbanCard({ record, highlightFields, onClick }: KanbanCardProps) {

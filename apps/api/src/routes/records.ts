@@ -1,5 +1,5 @@
 import { buildRecordValidator } from "@kyra/shared";
-import type { Field } from "@kyra/shared";
+import type { Field, LookupSettings } from "@kyra/shared";
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { type AppEnv, requireRole } from "../lib/auth";
@@ -148,4 +148,78 @@ records.delete("/:recordId", requireRole("owner", "admin", "editor"), async (c) 
 	}
 
 	return c.json({ ok: true });
+});
+
+// GET /lookup-options/:fieldId — Get filtered options for a lookup field
+records.get("/lookup-options/:fieldId", async (c) => {
+	const fieldId = c.req.param("fieldId");
+
+	// Get the lookup field
+	const [field] = await db
+		.select()
+		.from(fieldsTable)
+		.where(eq(fieldsTable.id, fieldId));
+
+	if (!field || field.type !== "lookup" || !field.lookupSettings) {
+		return c.json({ error: "Invalid lookup field" }, 400);
+	}
+
+	const settings = field.lookupSettings as LookupSettings;
+
+	// Get all records from the source database
+	const sourceRecords = await db
+		.select()
+		.from(recordsTable)
+		.where(eq(recordsTable.databaseId, settings.sourceDatabaseId))
+		.orderBy(desc(recordsTable.createdAt));
+
+	// Get source fields for filtering reference
+	const sourceFields = await db
+		.select()
+		.from(fieldsTable)
+		.where(eq(fieldsTable.databaseId, settings.sourceDatabaseId));
+
+	// Apply filters in-memory on the JSONB data
+	const filtered = sourceRecords.filter((record) => {
+		const data = record.data as Record<string, unknown>;
+		return settings.filters.every((filter) => {
+			const val = data[filter.fieldId];
+			const strVal = val == null ? "" : String(val);
+
+			switch (filter.operator) {
+				case "eq":
+					return strVal === filter.value;
+				case "neq":
+					return strVal !== filter.value;
+				case "gt":
+					return Number(strVal) > Number(filter.value);
+				case "lt":
+					return Number(strVal) < Number(filter.value);
+				case "gte":
+					return Number(strVal) >= Number(filter.value);
+				case "lte":
+					return Number(strVal) <= Number(filter.value);
+				case "contains":
+					return strVal.toLowerCase().includes(filter.value.toLowerCase());
+				case "is_null":
+					return val == null || strVal === "";
+				case "is_not_null":
+					return val != null && strVal !== "";
+				default:
+					return true;
+			}
+		});
+	});
+
+	// Map to options: { value, label }
+	const valueFieldId = settings.valueFieldId || "id";
+	const options = filtered.map((record) => {
+		const data = record.data as Record<string, unknown>;
+		return {
+			value: valueFieldId === "id" ? record.id : String(data[valueFieldId] ?? record.id),
+			label: String(data[settings.displayFieldId] ?? ""),
+		};
+	});
+
+	return c.json({ options, sourceFields });
 });
