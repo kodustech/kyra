@@ -1,4 +1,8 @@
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import Color from "@tiptap/extension-color";
 import Highlight from "@tiptap/extension-highlight";
@@ -25,14 +29,16 @@ import {
 	Link as LinkIcon,
 	List,
 	ListOrdered,
+	Loader2,
 	Minus,
 	Quote,
 	Redo,
 	Strikethrough,
 	UnderlineIcon,
 	Undo,
+	Upload,
 } from "lucide-react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface RichTextEditorProps {
 	content: string;
@@ -86,13 +92,13 @@ export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
 		editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
 	}, [editor]);
 
-	const addImage = useCallback(() => {
-		if (!editor) return;
-		const url = window.prompt("Image URL");
-		if (url) {
+	const insertImage = useCallback(
+		(url: string) => {
+			if (!editor || !url) return;
 			editor.chain().focus().setImage({ src: url }).run();
-		}
-	}, [editor]);
+		},
+		[editor],
+	);
 
 	if (!editor) return null;
 
@@ -253,14 +259,141 @@ export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
 				>
 					<LinkIcon className="h-4 w-4" />
 				</ToolbarButton>
-				<ToolbarButton onClick={addImage} title="Insert Image">
-					<ImageIcon className="h-4 w-4" />
-				</ToolbarButton>
+				<ImageInsertPopover onInsert={insertImage} />
 			</div>
 
 			{/* Editor area */}
 			<EditorContent editor={editor} className="tiptap-editor" />
 		</div>
+	);
+}
+
+function ImageInsertPopover({ onInsert }: { onInsert: (url: string) => void }) {
+	const [open, setOpen] = useState(false);
+	const [tab, setTab] = useState<"upload" | "url">("upload");
+	const [url, setUrl] = useState("");
+	const [uploading, setUploading] = useState(false);
+	const fileInputRef = useRef<HTMLInputElement>(null);
+
+	function reset() {
+		setTab("upload");
+		setUrl("");
+		setUploading(false);
+	}
+
+	async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+		const file = e.target.files?.[0];
+		if (!file) return;
+
+		setUploading(true);
+		try {
+			const res = await api.upload<{ url: string }>("/uploads/image", file);
+			onInsert(res.url);
+			setOpen(false);
+			reset();
+		} catch (err) {
+			alert((err as Error).message);
+		} finally {
+			setUploading(false);
+			if (fileInputRef.current) fileInputRef.current.value = "";
+		}
+	}
+
+	function handleUrlSubmit() {
+		if (!url.trim()) return;
+		onInsert(url.trim());
+		setOpen(false);
+		reset();
+	}
+
+	return (
+		<Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
+			<PopoverTrigger asChild>
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon"
+					className="h-8 w-8"
+					title="Insert Image"
+				>
+					<ImageIcon className="h-4 w-4" />
+				</Button>
+			</PopoverTrigger>
+			<PopoverContent className="w-80" align="start">
+				<div className="space-y-3">
+					<div className="flex gap-1 rounded-md bg-muted p-1">
+						<button
+							type="button"
+							className={cn(
+								"flex-1 rounded-sm px-3 py-1 text-sm font-medium transition-colors",
+								tab === "upload" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground",
+							)}
+							onClick={() => setTab("upload")}
+						>
+							Upload
+						</button>
+						<button
+							type="button"
+							className={cn(
+								"flex-1 rounded-sm px-3 py-1 text-sm font-medium transition-colors",
+								tab === "url" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground",
+							)}
+							onClick={() => setTab("url")}
+						>
+							URL
+						</button>
+					</div>
+
+					{tab === "upload" ? (
+						<div className="space-y-2">
+							<Label>Choose an image</Label>
+							<div className="flex items-center gap-2">
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									className="w-full"
+									disabled={uploading}
+									onClick={() => fileInputRef.current?.click()}
+								>
+									{uploading ? (
+										<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>
+									) : (
+										<><Upload className="mr-2 h-4 w-4" /> Select file</>
+									)}
+								</Button>
+								<input
+									ref={fileInputRef}
+									type="file"
+									accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+									className="hidden"
+									onChange={handleFileChange}
+								/>
+							</div>
+							<p className="text-xs text-muted-foreground">
+								JPG, PNG, GIF, WebP or SVG. Max 5 MB.
+							</p>
+						</div>
+					) : (
+						<div className="space-y-2">
+							<Label htmlFor="image-url">Image URL</Label>
+							<div className="flex gap-2">
+								<Input
+									id="image-url"
+									value={url}
+									onChange={(e) => setUrl(e.target.value)}
+									placeholder="https://..."
+									onKeyDown={(e) => e.key === "Enter" && handleUrlSubmit()}
+								/>
+								<Button type="button" size="sm" onClick={handleUrlSubmit} disabled={!url.trim()}>
+									Insert
+								</Button>
+							</div>
+						</div>
+					)}
+				</div>
+			</PopoverContent>
+		</Popover>
 	);
 }
 

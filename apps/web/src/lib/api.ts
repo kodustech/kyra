@@ -59,4 +59,36 @@ export const api = {
 		request<T>(path, { method: "PUT", body: JSON.stringify(data) }),
 
 	delete: <T = { ok: boolean }>(path: string) => request<T>(path, { method: "DELETE" }),
+
+	upload: async <T>(path: string, file: File): Promise<T> => {
+		const token = getToken();
+		const formData = new FormData();
+		formData.append("file", file);
+
+		const headers: Record<string, string> = {};
+		if (token) {
+			headers.Authorization = `Bearer ${token}`;
+		}
+
+		const res = await fetch(`${BASE}${path}`, {
+			method: "POST",
+			headers,
+			body: formData,
+		});
+
+		if (res.status === 401) {
+			removeToken();
+			if (window.location.pathname !== "/login" && window.location.pathname !== "/setup") {
+				window.location.href = "/login";
+			}
+			throw new Error("Unauthorized");
+		}
+
+		if (!res.ok) {
+			const body = await res.json().catch(() => ({ error: res.statusText }));
+			throw new Error(body.error || `Upload failed: ${res.status}`);
+		}
+
+		return res.json() as Promise<T>;
+	},
 };

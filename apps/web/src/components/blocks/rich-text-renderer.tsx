@@ -17,6 +17,9 @@ interface RichTextRendererProps {
  * Used to provide backwards-compatibility with old Markdown content.
  */
 function looksLikeMarkdown(text: string): boolean {
+	const trimmed = text.trim();
+	// If it starts with an HTML tag, it's HTML from the editor — not Markdown
+	if (trimmed.startsWith("<")) return false;
 	return /^#{1,6}\s|^\*\*|^\- |\*\*|__|\[.*\]\(.*\)/m.test(text);
 }
 

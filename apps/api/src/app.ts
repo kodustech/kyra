@@ -12,6 +12,7 @@ import { notificationsRoutes } from "./routes/notifications";
 import { pages } from "./routes/pages";
 import { publicRoutes } from "./routes/public";
 import { records } from "./routes/records";
+import { uploads } from "./routes/uploads";
 import { webhooksRoutes } from "./routes/webhooks";
 
 export const app = new Hono<AppEnv>();
@@ -28,8 +29,10 @@ app.use("/databases/*", authMiddleware);
 app.use("/pages/*", authMiddleware);
 app.use("/notifications/*", authMiddleware);
 app.use("/api-keys/*", authMiddleware);
+app.use("/uploads/*", authMiddleware);
 app.use("/webhooks/*", authMiddleware);
 
+app.route("/uploads", uploads);
 app.route("/databases", databases);
 app.route("/databases/:databaseId/fields", fields);
 app.route("/databases/:databaseId/records", records);
