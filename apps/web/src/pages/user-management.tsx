@@ -229,9 +229,9 @@ export function UserManagement() {
 								className="flex items-center justify-between border-b border-border px-4 py-3 last:border-b-0"
 							>
 								<div>
-									<p className="text-sm font-medium">{inv.name}</p>
+									<p className="text-sm font-medium">{inv.email}</p>
 									<p className="text-xs text-muted-foreground">
-										{inv.email} — <Badge variant="outline">{inv.role}</Badge>
+										<Badge variant="outline">{inv.role}</Badge>
 									</p>
 								</div>
 								<div className="flex items-center gap-2">
@@ -263,10 +263,8 @@ export function UserManagement() {
 			<InviteDialog
 				open={showInvite}
 				onOpenChange={setShowInvite}
-				isOwner={currentUser.role === "owner"}
-				onCreated={(invite) => {
-					setInvites((prev) => [invite, ...prev]);
-					copyInviteLink(invite.token);
+				onCreated={(newInvites) => {
+					setInvites((prev) => [...newInvites, ...prev]);
 				}}
 			/>
 
@@ -318,30 +316,65 @@ export function UserManagement() {
 function InviteDialog({
 	open,
 	onOpenChange,
-	isOwner,
 	onCreated,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	isOwner: boolean;
-	onCreated: (invite: Invite) => void;
+	onCreated: (newInvites: Invite[]) => void;
 }) {
-	const [name, setName] = useState("");
-	const [email, setEmail] = useState("");
-	const [role, setRole] = useState<string>("editor");
+	const [emails, setEmails] = useState<string[]>([]);
+	const [input, setInput] = useState("");
 	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState("");
 
-	async function handleSubmit(e: React.FormEvent) {
-		e.preventDefault();
+	function addEmail() {
+		const trimmed = input.trim().toLowerCase();
+		if (!trimmed) return;
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+			setError("Invalid email");
+			return;
+		}
+		if (emails.includes(trimmed)) {
+			setError("Email already added");
+			return;
+		}
+		setEmails((prev) => [...prev, trimmed]);
+		setInput("");
+		setError("");
+	}
+
+	function removeEmail(email: string) {
+		setEmails((prev) => prev.filter((e) => e !== email));
+	}
+
+	function handleKeyDown(e: React.KeyboardEvent) {
+		if (e.key === "Enter") {
+			e.preventDefault();
+			addEmail();
+		}
+	}
+
+	async function handleSubmit() {
+		if (emails.length === 0) return;
 		setLoading(true);
 		try {
-			const invite = await api.post<Invite>("/auth/invites", { name, email, role });
-			onCreated(invite);
+			const res = await api.post<{ invites: Invite[]; skipped: string[] }>("/auth/invites", { emails });
+			onCreated(res.invites);
+			if (res.skipped.length > 0) {
+				toast.info(`${res.skipped.length} email(s) skipped (already registered)`);
+			}
+			if (res.invites.length > 0) {
+				// Copy all invite links
+				const links = res.invites
+					.map((inv) => `${window.location.origin}/invite/${inv.token}`)
+					.join("\n");
+				navigator.clipboard.writeText(links);
+				toast.success(`${res.invites.length} invite(s) created! Links copied.`);
+			}
 			onOpenChange(false);
-			setName("");
-			setEmail("");
-			setRole("editor");
-			toast.success("Invite created and link copied!");
+			setEmails([]);
+			setInput("");
+			setError("");
 		} catch (err) {
 			toast.error((err as Error).message);
 		} finally {
@@ -350,56 +383,63 @@ function InviteDialog({
 	}
 
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
+		<Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setEmails([]); setInput(""); setError(""); } }}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Invite User</DialogTitle>
-					<DialogDescription>Send an invitation to join Kyra.</DialogDescription>
+					<DialogTitle>Invite Users</DialogTitle>
+					<DialogDescription>
+						Type an email and press Enter to add. All users will be invited as viewers.
+					</DialogDescription>
 				</DialogHeader>
-				<form onSubmit={handleSubmit} className="space-y-4">
-					<div className="space-y-2">
-						<Label htmlFor="invite-name">Name</Label>
-						<Input
-							id="invite-name"
-							value={name}
-							onChange={(e) => setName(e.target.value)}
-							placeholder="User's name"
-							required
-						/>
-					</div>
+				<div className="space-y-4">
 					<div className="space-y-2">
 						<Label htmlFor="invite-email">Email</Label>
-						<Input
-							id="invite-email"
-							type="email"
-							value={email}
-							onChange={(e) => setEmail(e.target.value)}
-							placeholder="user@example.com"
-							required
-						/>
+						<div className="flex gap-2">
+							<Input
+								id="invite-email"
+								type="email"
+								value={input}
+								onChange={(e) => { setInput(e.target.value); setError(""); }}
+								onKeyDown={handleKeyDown}
+								placeholder="user@example.com"
+								autoFocus
+							/>
+							<Button type="button" variant="outline" size="icon" onClick={addEmail} title="Add email">
+								<Plus className="h-4 w-4" />
+							</Button>
+						</div>
+						{error && <p className="text-xs text-destructive">{error}</p>}
 					</div>
-					<div className="space-y-2">
-						<Label>Role</Label>
-						<Select value={role} onValueChange={setRole}>
-							<SelectTrigger>
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								{isOwner && <SelectItem value="admin">Admin</SelectItem>}
-								<SelectItem value="editor">Editor</SelectItem>
-								<SelectItem value="viewer">Viewer</SelectItem>
-							</SelectContent>
-						</Select>
-					</div>
+
+					{emails.length > 0 && (
+						<div className="flex flex-wrap gap-2">
+							{emails.map((email) => (
+								<span
+									key={email}
+									className="inline-flex items-center gap-1 rounded-md bg-muted px-2.5 py-1 text-sm"
+								>
+									{email}
+									<button
+										type="button"
+										onClick={() => removeEmail(email)}
+										className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
+									>
+										<Trash2 className="h-3 w-3" />
+									</button>
+								</span>
+							))}
+						</div>
+					)}
+
 					<DialogFooter>
 						<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
 							Cancel
 						</Button>
-						<Button type="submit" disabled={loading}>
-							{loading ? "Creating..." : "Create Invite"}
+						<Button onClick={handleSubmit} disabled={emails.length === 0 || loading}>
+							{loading ? "Inviting..." : `Invite ${emails.length > 0 ? `(${emails.length})` : ""}`}
 						</Button>
 					</DialogFooter>
-				</form>
+				</div>
 			</DialogContent>
 		</Dialog>
 	);

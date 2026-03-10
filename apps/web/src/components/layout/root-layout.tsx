@@ -1,11 +1,14 @@
 import { CreateDatabaseDialog } from "@/components/databases/create-database-dialog";
 import { CreatePageDialog } from "@/components/pages/create-page-dialog";
+import { PageIcon } from "@/components/ui/icon-picker";
 import { useDatabases } from "@/hooks/use-databases";
 import { usePages } from "@/hooks/use-pages";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/auth-provider";
-import { Eye } from "lucide-react";
+import { canEditContent, canManageDatabases } from "@kyra/shared";
+import { Database, PinOff, Plus } from "lucide-react";
 import { useState } from "react";
-import { Outlet } from "react-router";
+import { Link, Outlet, useLocation } from "react-router";
 import { Header } from "./header";
 import { Sidebar } from "./sidebar";
 
@@ -24,6 +27,7 @@ export function RootLayout() {
 	const { databases, reorder: reorderDatabases } = useDatabases();
 	const { pages, reorder: reorderPages } = usePages();
 	const { user } = useAuth();
+	const location = useLocation();
 	const [showCreateDb, setShowCreateDb] = useState(false);
 	const [showCreatePage, setShowCreatePage] = useState(false);
 	const [pinned, setPinned] = useState(getInitialPinned);
@@ -51,36 +55,98 @@ export function RootLayout() {
 		userRole: user?.role,
 	};
 
+	const canAddPages = !user?.role || canEditContent(user.role);
+	const canSeeDbSection = !user?.role || canManageDatabases(user.role);
+
 	return (
 		<div className="flex h-screen overflow-hidden">
 			{pinned ? (
 				<Sidebar {...sidebarProps} />
 			) : (
-				<>
-					{!hovered && (
+				<div
+					className="relative h-full shrink-0"
+					onMouseEnter={() => setHovered(true)}
+					onMouseLeave={() => setHovered(false)}
+				>
+					{/* Mini sidebar — icon-only, always visible when unpinned */}
+					<aside className="flex h-full w-14 flex-col items-center border-r border-sidebar-border bg-sidebar py-2 gap-1">
+						{/* Pin button */}
 						<button
 							type="button"
-							onClick={() => setHovered(true)}
-							className="fixed bottom-4 left-4 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105"
-							title="Open menu"
+							onClick={() => handlePinChange(true)}
+							className="mb-2 flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+							title="Pin sidebar"
 						>
-							<Eye className="h-5 w-5" />
+							<PinOff className="h-4 w-4" />
 						</button>
-					)}
-					{hovered && (
-						<div
-							className="fixed inset-0 z-40"
-							onClick={() => setHovered(false)}
-						>
-							<div
-								className="h-full w-64 shadow-xl"
-								onClick={(e) => e.stopPropagation()}
+
+						{/* Page icons */}
+						{pages.map((page) => (
+							<Link
+								key={page.id}
+								to={`/pages/${page.id}`}
+								title={page.name}
+								className={cn(
+									"flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+									location.pathname === `/pages/${page.id}`
+										? "bg-sidebar-accent text-sidebar-accent-foreground"
+										: "text-sidebar-foreground hover:bg-sidebar-accent",
+								)}
 							>
-								<Sidebar {...sidebarProps} />
-							</div>
+								<PageIcon name={page.icon} className="h-4 w-4" />
+							</Link>
+						))}
+
+						{/* Add page */}
+						{canAddPages && (
+							<button
+								type="button"
+								onClick={() => setShowCreatePage(true)}
+								className="flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+								title="New page"
+							>
+								<Plus className="h-3.5 w-3.5" />
+							</button>
+						)}
+
+						{/* Databases */}
+						{canSeeDbSection && (
+							<>
+								<div className="my-1 h-px w-6 bg-sidebar-border" />
+								{databases.map((db) => (
+									<Link
+										key={db.id}
+										to={`/databases/${db.id}`}
+										title={db.name}
+										className={cn(
+											"flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+											location.pathname === `/databases/${db.id}`
+												? "bg-sidebar-accent text-sidebar-accent-foreground"
+												: "text-sidebar-foreground hover:bg-sidebar-accent",
+										)}
+									>
+										<Database className="h-4 w-4" />
+									</Link>
+								))}
+								<button
+									type="button"
+									onClick={() => setShowCreateDb(true)}
+									className="flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+									title="New database"
+								>
+									<Plus className="h-3.5 w-3.5" />
+								</button>
+							</>
+						)}
+					</aside>
+
+					{/* Full sidebar overlay on hover */}
+					{hovered && (
+						<div className="absolute left-0 top-0 z-40 h-full w-64 shadow-xl">
+							<Sidebar {...sidebarProps} />
 						</div>
 					)}
-				</>
+				</div>
 			)}
 			<div className="flex flex-1 flex-col overflow-hidden">
 				<Header />

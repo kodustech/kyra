@@ -184,32 +184,34 @@ auth.post("/invites", authMiddleware, requireRole("owner", "admin"), async (c) =
 	const parsed = await parseBody(c, createInviteSchema);
 	if ("error" in parsed) return parsed.error;
 
-	const { name, email, role } = parsed.data;
+	const { emails } = parsed.data;
 
-	// Admin cannot invite admin
-	if (user.role === "admin" && role === "admin") {
-		return c.json({ error: "Admins can only invite editors and viewers" }, 403);
-	}
-
-	// Check if email already used
-	const [existing] = await db
-		.select({ id: users.id })
+	// Check which emails are already registered
+	const existingUsers = await db
+		.select({ email: users.email })
 		.from(users)
-		.where(and(eq(users.email, email), isNull(users.deletedAt)));
+		.where(and(inArray(users.email, emails), isNull(users.deletedAt)));
 
-	if (existing) {
-		return c.json({ error: "User with this email already exists" }, 409);
+	const existingEmails = new Set(existingUsers.map((u) => u.email));
+	const newEmails = emails.filter((e) => !existingEmails.has(e));
+
+	if (newEmails.length === 0) {
+		return c.json({ error: "All emails are already registered" }, 409);
 	}
 
-	const token = crypto.randomUUID();
 	const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+	const values = newEmails.map((email) => ({
+		email,
+		name: "",
+		role: "viewer" as const,
+		token: crypto.randomUUID(),
+		expiresAt,
+		invitedBy: user.id,
+	}));
 
-	const [invite] = await db
-		.insert(invites)
-		.values({ email, name, role, token, expiresAt, invitedBy: user.id })
-		.returning();
+	const created = await db.insert(invites).values(values).returning();
 
-	return c.json(invite, 201);
+	return c.json({ invites: created, skipped: emails.filter((e) => existingEmails.has(e)) }, 201);
 });
 
 auth.get("/invites", authMiddleware, requireRole("owner", "admin"), async (c) => {
@@ -264,7 +266,7 @@ auth.post("/invite/:token/accept", async (c) => {
 	const parsed = await parseBody(c, acceptInviteSchema);
 	if ("error" in parsed) return parsed.error;
 
-	const { password, color } = parsed.data;
+	const { name, password, color } = parsed.data;
 
 	const [invite] = await db
 		.select()
@@ -289,7 +291,7 @@ auth.post("/invite/:token/accept", async (c) => {
 		const [user] = await db
 			.insert(users)
 			.values({
-				name: invite.name,
+				name,
 				email: invite.email,
 				passwordHash,
 				role: invite.role,

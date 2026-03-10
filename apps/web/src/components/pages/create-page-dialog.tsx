@@ -11,6 +11,7 @@ import { IconPicker } from "@/components/ui/icon-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { usePages } from "@/hooks/use-pages";
+import { api } from "@/lib/api";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
@@ -55,6 +56,12 @@ export function CreatePageDialog({ open, onOpenChange }: CreatePageDialogProps) 
 		setLoading(true);
 		try {
 			const page = await create({ name: name.trim(), slug: slug.trim(), icon, published: false });
+			// Auto-create a default richtext block
+			try {
+				await api.post(`/pages/${page.id}/blocks`, { viewType: "richtext" });
+			} catch {
+				// non-critical — page was created, block can be added manually
+			}
 			toast.success("Page created");
 			setName("");
 			setSlug("");

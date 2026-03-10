@@ -35,6 +35,7 @@ export function AcceptInvitePage() {
 	const [invite, setInvite] = useState<InviteData | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [name, setName] = useState("");
 	const [password, setPassword] = useState("");
 	const [color, setColor] = useState(DEFAULT_COLORS[0]);
 	const [submitting, setSubmitting] = useState(false);
@@ -53,7 +54,7 @@ export function AcceptInvitePage() {
 		try {
 			const res = await api.post<{ user: AuthUser; token: string }>(
 				`/auth/invite/${token}/accept`,
-				{ password, color },
+				{ name, password, color },
 			);
 			setToken(res.token);
 			updateUser(res.user);
@@ -96,13 +97,21 @@ export function AcceptInvitePage() {
 
 				<form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-border p-6">
 					<div className="space-y-2">
-						<Label>Name</Label>
-						<Input value={invite.name} disabled />
+						<Label>Email</Label>
+						<Input value={invite.email} disabled />
 					</div>
 
 					<div className="space-y-2">
-						<Label>Email</Label>
-						<Input value={invite.email} disabled />
+						<Label htmlFor="invite-name">Your Name</Label>
+						<Input
+							id="invite-name"
+							value={name}
+							onChange={(e) => setName(e.target.value)}
+							placeholder="Your full name"
+							minLength={1}
+							required
+							autoFocus
+						/>
 					</div>
 
 					<div className="space-y-2">

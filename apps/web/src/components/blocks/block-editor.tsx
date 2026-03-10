@@ -1,7 +1,24 @@
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useBlocks } from "@/hooks/use-blocks";
-import type { CreateBlockInput } from "@kyra/shared";
+import { useDatabases } from "@/hooks/use-databases";
+import type { CreateBlockInput, ViewType } from "@kyra/shared";
 import { Layers, Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -15,10 +32,15 @@ interface BlockEditorProps {
 }
 
 export function BlockEditor({ pageId }: BlockEditorProps) {
+	const { databases } = useDatabases();
 	const { blocks, loading, create, update, remove, reorder } = useBlocks(pageId);
 	const [showAdd, setShowAdd] = useState(false);
 	const [richTextContents, setRichTextContents] = useState<Record<string, string>>({});
 	const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+	// Slash command → insert block flow
+	const [slashBlockType, setSlashBlockType] = useState<string | null>(null);
+	const [slashDbId, setSlashDbId] = useState("");
 
 	// Initialize richtext content from blocks (only for new blocks, never overwrite local edits)
 	useEffect(() => {
@@ -63,6 +85,26 @@ export function BlockEditor({ pageId }: BlockEditorProps) {
 			}
 		};
 	}, []);
+
+	const handleSlashInsertBlock = useCallback((type: string) => {
+		setSlashBlockType(type);
+		setSlashDbId("");
+	}, []);
+
+	async function handleSlashBlockConfirm() {
+		if (!slashBlockType || !slashDbId) return;
+		try {
+			await create({
+				viewType: slashBlockType as ViewType,
+				databaseId: slashDbId,
+			} as CreateBlockInput);
+			toast.success("Block added");
+		} catch (err) {
+			toast.error((err as Error).message);
+		}
+		setSlashBlockType(null);
+		setSlashDbId("");
+	}
 
 	async function handleAdd(data: CreateBlockInput) {
 		try {
@@ -117,8 +159,7 @@ export function BlockEditor({ pageId }: BlockEditorProps) {
 				</div>
 			) : (
 				<>
-					<SortableBlockList blocks={blocks} onReorder={handleReorder} onDelete={handleDelete} />
-					<Separator className="my-6" />
+					{/* Block content editors */}
 					<div className="space-y-6">
 						{blocks.map((block) => (
 							<div key={block.id} className="rounded-lg border border-border p-4">
@@ -131,6 +172,7 @@ export function BlockEditor({ pageId }: BlockEditorProps) {
 									<RichTextEditor
 										content={richTextContents[block.id] ?? block.content ?? ""}
 										onChange={(content) => handleRichTextChange(block.id, content)}
+										onInsertBlock={handleSlashInsertBlock}
 									/>
 								) : (
 									<BlockRenderer
@@ -142,10 +184,49 @@ export function BlockEditor({ pageId }: BlockEditorProps) {
 							</div>
 						))}
 					</div>
+
+					{/* Sortable block list (reorder & delete) */}
+					<Separator className="my-6" />
+					<SortableBlockList blocks={blocks} onReorder={handleReorder} onDelete={handleDelete} />
 				</>
 			)}
 
 			<BlockFormDialog open={showAdd} onOpenChange={setShowAdd} onSubmit={handleAdd} />
+
+			{/* Mini dialog: pick database when inserting block via slash command */}
+			<Dialog open={!!slashBlockType} onOpenChange={(o) => !o && setSlashBlockType(null)}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>
+							Insert {slashBlockType === "table" ? "Table" : slashBlockType === "kanban" ? "Kanban" : "Form"} View
+						</DialogTitle>
+						<DialogDescription>Choose which database to display.</DialogDescription>
+					</DialogHeader>
+					<div className="mt-4 space-y-2">
+						<Label>Database</Label>
+						<Select value={slashDbId} onValueChange={setSlashDbId}>
+							<SelectTrigger>
+								<SelectValue placeholder="Select a database" />
+							</SelectTrigger>
+							<SelectContent>
+								{databases.map((db) => (
+									<SelectItem key={db.id} value={db.id}>
+										{db.name}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+					<DialogFooter className="mt-4">
+						<Button variant="outline" onClick={() => setSlashBlockType(null)}>
+							Cancel
+						</Button>
+						<Button onClick={handleSlashBlockConfirm} disabled={!slashDbId}>
+							Insert
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

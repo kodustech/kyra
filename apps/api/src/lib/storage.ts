@@ -45,9 +45,16 @@ export async function uploadFile(key: string, body: Buffer | Uint8Array, content
 	);
 
 	// Return the public URL
-	const url = publicUrl
-		? `${publicUrl}/${key}`
-		: `${endpoint}/${bucket}/${key}`;
+	let url: string;
+	if (publicUrl) {
+		url = `${publicUrl}/${key}`;
+	} else if (endpoint?.includes("/storage/v1/s3")) {
+		// Supabase Storage: derive public URL from the S3 endpoint
+		// S3 endpoint uses .storage.supabase.co but public URLs use .supabase.co
+		url = `${endpoint.replace(".storage.supabase.co", ".supabase.co").replace("/storage/v1/s3", "/storage/v1/object/public")}/${bucket}/${key}`;
+	} else {
+		url = `${endpoint}/${bucket}/${key}`;
+	}
 
 	console.log("[storage] Uploaded:", { key, bucket, publicUrl: !!publicUrl, url });
 	return url;

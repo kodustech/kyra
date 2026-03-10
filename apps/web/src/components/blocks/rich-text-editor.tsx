@@ -38,17 +38,27 @@ import {
 	Undo,
 	Upload,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createSlashCommandExtension } from "./slash-commands";
 
 interface RichTextEditorProps {
 	content: string;
 	onChange: (content: string) => void;
+	onInsertBlock?: (type: string) => void;
+	placeholder?: string;
 }
 
-export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
+export function RichTextEditor({ content, onChange, onInsertBlock, placeholder }: RichTextEditorProps) {
 	const onChangeRef = useRef(onChange);
 	onChangeRef.current = onChange;
 	const userEditedRef = useRef(false);
+	const onInsertBlockRef = useRef(onInsertBlock);
+	onInsertBlockRef.current = onInsertBlock;
+
+	const slashCommands = useMemo(
+		() => createSlashCommandExtension((...args) => onInsertBlockRef.current?.(...args)),
+		[],
+	);
 
 	const editor = useEditor({
 		extensions: [
@@ -62,7 +72,8 @@ export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
 			TextAlign.configure({ types: ["heading", "paragraph"] }),
 			Link.configure({ openOnClick: false, autolink: true }),
 			Image,
-			Placeholder.configure({ placeholder: "Start writing…" }),
+			Placeholder.configure({ placeholder: placeholder ?? 'Type "/" for commands…' }),
+			slashCommands,
 		],
 		content,
 		onUpdate: ({ editor }) => {

@@ -51,12 +51,11 @@ export const loginSchema = z.object({
 });
 
 export const createInviteSchema = z.object({
-	name: z.string().min(1, "Name is required").max(255),
-	email: z.string().email("Invalid email"),
-	role: z.enum(["admin", "editor", "viewer"] as const).default("editor"),
+	emails: z.array(z.string().email("Invalid email")).min(1, "At least one email is required"),
 });
 
 export const acceptInviteSchema = z.object({
+	name: z.string().min(1, "Name is required").max(255),
 	password: z.string().min(6, "Password must be at least 6 characters"),
 	color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Invalid hex color").default("#6366f1"),
 });
