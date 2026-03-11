@@ -86,6 +86,7 @@ interface RichTextEditorProps {
 	content: string;
 	onChange: (content: string) => void;
 	editable?: boolean;
+	showToolbar?: boolean;
 	onInsertBlock?: (type: string) => void;
 	pages?: PageItem[];
 	onCreatePage?: (name: string) => Promise<PageItem | null>;
@@ -96,6 +97,7 @@ export function RichTextEditor({
 	content,
 	onChange,
 	editable = true,
+	showToolbar = true,
 	onInsertBlock,
 	pages,
 	onCreatePage,
@@ -209,6 +211,68 @@ export function RichTextEditor({
 	if (!editable) {
 		return (
 			<div className="tiptap-content">
+				<EditorContent editor={editor} />
+			</div>
+		);
+	}
+
+	if (!showToolbar) {
+		return (
+			<div className="tiptap-content">
+				<BubbleMenu
+					editor={editor}
+					className="flex items-center gap-0.5 rounded-md border border-border bg-popover p-1 shadow-md"
+				>
+					<ToolbarButton
+						active={editor.isActive("bold")}
+						onClick={() => editor.chain().focus().toggleBold().run()}
+						title="Bold"
+					>
+						<Bold className="h-3.5 w-3.5" />
+					</ToolbarButton>
+					<ToolbarButton
+						active={editor.isActive("italic")}
+						onClick={() => editor.chain().focus().toggleItalic().run()}
+						title="Italic"
+					>
+						<Italic className="h-3.5 w-3.5" />
+					</ToolbarButton>
+					<ToolbarButton
+						active={editor.isActive("underline")}
+						onClick={() => editor.chain().focus().toggleUnderline().run()}
+						title="Underline"
+					>
+						<UnderlineIcon className="h-3.5 w-3.5" />
+					</ToolbarButton>
+					<ToolbarButton
+						active={editor.isActive("strike")}
+						onClick={() => editor.chain().focus().toggleStrike().run()}
+						title="Strikethrough"
+					>
+						<Strikethrough className="h-3.5 w-3.5" />
+					</ToolbarButton>
+					<ToolbarButton
+						active={editor.isActive("code")}
+						onClick={() => editor.chain().focus().toggleCode().run()}
+						title="Code"
+					>
+						<Code className="h-3.5 w-3.5" />
+					</ToolbarButton>
+					<ToolbarButton
+						active={editor.isActive("highlight")}
+						onClick={() => editor.chain().focus().toggleHighlight().run()}
+						title="Highlight"
+					>
+						<Highlighter className="h-3.5 w-3.5" />
+					</ToolbarButton>
+					<ToolbarButton
+						active={editor.isActive("link")}
+						onClick={setLink}
+						title="Link"
+					>
+						<LinkIcon className="h-3.5 w-3.5" />
+					</ToolbarButton>
+				</BubbleMenu>
 				<EditorContent editor={editor} />
 			</div>
 		);

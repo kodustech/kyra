@@ -15,7 +15,7 @@ import { canEditContent } from "@kyra/shared";
 import { IconPicker } from "@/components/ui/icon-picker";
 import { useAuth } from "@/providers/auth-provider";
 import { ExternalLink, Eye, Settings, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
@@ -242,6 +242,31 @@ function ConfigView({
 function PreviewView({ pageId }: { pageId: string }) {
 	const { blocks, loading, update } = useBlocks(pageId);
 	const [columnConfigs, setColumnConfigs] = useState<Record<string, ColumnConfig>>({});
+	const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+	// Clean up debounce timers on unmount
+	useEffect(() => {
+		const timers = debounceTimers.current;
+		return () => {
+			for (const timer of Object.values(timers)) clearTimeout(timer);
+		};
+	}, []);
+
+	const handleRichTextChange = useCallback(
+		(blockId: string, content: string) => {
+			if (debounceTimers.current[blockId]) {
+				clearTimeout(debounceTimers.current[blockId]);
+			}
+			debounceTimers.current[blockId] = setTimeout(async () => {
+				try {
+					await update(blockId, { content });
+				} catch (err) {
+					toast.error((err as Error).message);
+				}
+			}, 800);
+		},
+		[update],
+	);
 
 	const handleBlockUpdate = useCallback(
 		async (blockId: string, input: UpdateBlockInput) => {
@@ -294,7 +319,12 @@ function PreviewView({ pageId }: { pageId: string }) {
 						}`}
 					>
 						{block.viewType === "richtext" ? (
-							<RichTextEditor editable={false} content={block.content ?? ""} onChange={() => {}} />
+							<RichTextEditor
+								editable
+								showToolbar={false}
+								content={block.content ?? ""}
+								onChange={(content) => handleRichTextChange(block.id, content)}
+							/>
 						) : (
 							<>
 								{showTitle && (
