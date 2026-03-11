@@ -68,7 +68,7 @@ export function CreatePageDialog({ open, onOpenChange }: CreatePageDialogProps) 
 			setIcon(null);
 			setSlugManual(false);
 			onOpenChange(false);
-			navigate(`/pages/${page.id}?config`);
+			navigate(`/pages/${page.id}`);
 		} catch (err) {
 			toast.error((err as Error).message);
 		} finally {

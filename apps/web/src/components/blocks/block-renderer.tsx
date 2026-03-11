@@ -282,6 +282,12 @@ export function BlockRenderer({
 		}
 
 		return (
+			<>
+			{toolbarExtra && (
+				<div className="mb-3 flex items-center justify-end gap-2">
+					{toolbarExtra}
+				</div>
+			)}
 			<KanbanBoard
 				fields={fields}
 				records={records}
@@ -324,6 +330,7 @@ export function BlockRenderer({
 					});
 				}}
 			/>
+			</>
 		);
 	}
 

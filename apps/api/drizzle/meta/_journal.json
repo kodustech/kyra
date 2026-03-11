@@ -57,6 +57,13 @@
       "when": 1773064344432,
       "tag": "0007_chief_shard",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1773233046684,
+      "tag": "0008_boring_mac_gargan",
+      "breakpoints": true
     }
   ]
 }
