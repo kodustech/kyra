@@ -1,9 +1,12 @@
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Extension } from "@tiptap/react";
+import { PluginKey } from "@tiptap/pm/state";
 import Suggestion, { type SuggestionOptions } from "@tiptap/suggestion";
 import {
 	AlignLeft,
+	ChevronRight,
+	FileText,
 	FormInput,
 	Heading1,
 	Heading2,
@@ -133,6 +136,42 @@ export function getSlashCommands(onInsertBlock?: (type: string) => void): SlashC
 					}
 				};
 				input.click();
+			},
+		},
+		{
+			title: "Toggle",
+			description: "Collapsible accordion section",
+			icon: ChevronRight,
+			category: "basic",
+			command: ({ editor, range }) => {
+				editor
+					.chain()
+					.focus()
+					.deleteRange(range)
+					.insertContent({
+						type: "details",
+						content: [
+							{
+								type: "detailsSummary",
+								content: [{ type: "text", text: "Toggle title" }],
+							},
+							{
+								type: "detailsContent",
+								content: [{ type: "paragraph" }],
+							},
+						],
+					})
+					.run();
+			},
+		},
+		{
+			title: "Page Link",
+			description: 'Link to a page (or type "[[" )',
+			icon: FileText,
+			category: "basic",
+			command: ({ editor, range }) => {
+				// Delete the slash command range and insert [[ to trigger the page link suggestion
+				editor.chain().focus().deleteRange(range).insertContent("[[").run();
 			},
 		},
 		// ─── Block commands (database views) ─────────────────────────────────
@@ -380,6 +419,7 @@ export function createSlashCommandExtension(
 			return [
 				Suggestion({
 					editor: this.editor,
+					pluginKey: new PluginKey("slashCommandSuggestion"),
 					...this.options.suggestion,
 				}),
 			];

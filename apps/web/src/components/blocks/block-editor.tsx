@@ -18,9 +18,10 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useBlocks } from "@/hooks/use-blocks";
 import { useDatabases } from "@/hooks/use-databases";
-import type { CreateBlockInput, ViewType } from "@kyra/shared";
+import { usePages } from "@/hooks/use-pages";
+import type { CreateBlockInput, Page, ViewType } from "@kyra/shared";
 import { Layers, Plus } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BlockFormDialog } from "./block-form-dialog";
 import { BlockRenderer } from "./block-renderer";
@@ -33,6 +34,7 @@ interface BlockEditorProps {
 
 export function BlockEditor({ pageId }: BlockEditorProps) {
 	const { databases } = useDatabases();
+	const { pages, create: createPage } = usePages();
 	const { blocks, loading, create, update, remove, reorder } = useBlocks(pageId);
 	const [showAdd, setShowAdd] = useState(false);
 	const [richTextContents, setRichTextContents] = useState<Record<string, string>>({});
@@ -90,6 +92,27 @@ export function BlockEditor({ pageId }: BlockEditorProps) {
 		setSlashBlockType(type);
 		setSlashDbId("");
 	}, []);
+
+	const pageItems = useMemo(
+		() => pages.map((p) => ({ id: p.id, name: p.name, slug: p.slug, icon: p.icon })),
+		[pages],
+	);
+
+	const handleCreatePageFromEditor = useCallback(
+		async (name: string) => {
+			try {
+				const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "untitled";
+				const suffix = Math.random().toString(36).slice(2, 6);
+				const slug = `${base}-${suffix}`;
+				const page = await createPage({ name, slug, published: false });
+				return { id: page.id, name: page.name, slug: page.slug, icon: page.icon };
+			} catch (err) {
+				toast.error((err as Error).message);
+				return null;
+			}
+		},
+		[createPage],
+	);
 
 	async function handleSlashBlockConfirm() {
 		if (!slashBlockType || !slashDbId) return;
@@ -173,6 +196,8 @@ export function BlockEditor({ pageId }: BlockEditorProps) {
 										content={richTextContents[block.id] ?? block.content ?? ""}
 										onChange={(content) => handleRichTextChange(block.id, content)}
 										onInsertBlock={handleSlashInsertBlock}
+										pages={pageItems}
+										onCreatePage={handleCreatePageFromEditor}
 									/>
 								) : (
 									<BlockRenderer

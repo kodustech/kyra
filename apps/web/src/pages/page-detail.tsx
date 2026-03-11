@@ -1,7 +1,7 @@
 import { BlockEditor } from "@/components/blocks/block-editor";
 import { BlockRenderer, type ColumnConfig } from "@/components/blocks/block-renderer";
 import { BlockSettings } from "@/components/blocks/block-settings";
-import { RichTextRenderer } from "@/components/blocks/rich-text-renderer";
+import { RichTextEditor } from "@/components/blocks/rich-text-editor";
 import { DeletePageDialog } from "@/components/pages/delete-page-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -294,7 +294,7 @@ function PreviewView({ pageId }: { pageId: string }) {
 						}`}
 					>
 						{block.viewType === "richtext" ? (
-							<RichTextRenderer content={block.content ?? ""} />
+							<RichTextEditor editable={false} content={block.content ?? ""} onChange={() => {}} />
 						) : (
 							<>
 								<div className={`flex items-center justify-between ${showTitle ? "mb-4" : "mb-1"}`}>

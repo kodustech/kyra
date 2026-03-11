@@ -13,6 +13,7 @@ import TextAlign from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Underline from "@tiptap/extension-underline";
 import { EditorContent, useEditor } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import {
 	AlignCenter,
@@ -39,29 +40,95 @@ import {
 	Upload,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DetailsNode, DetailsSummaryNode, DetailsContentNode } from "./details-node";
+import { createPageLinkExtension, PageLinkNode, type PageItem } from "./page-link-node";
 import { createSlashCommandExtension } from "./slash-commands";
+
+/**
+ * Very basic Markdown-to-HTML conversion for legacy content.
+ */
+function looksLikeMarkdown(text: string): boolean {
+	const trimmed = text.trim();
+	if (trimmed.startsWith("<")) return false;
+	return /^#{1,6}\s|^\*\*|^\- |\*\*|__|\[.*\]\(.*\)/m.test(text);
+}
+
+function markdownToHtml(md: string): string {
+	let html = md
+		.replace(/^### (.+)$/gm, "<h3>$1</h3>")
+		.replace(/^## (.+)$/gm, "<h2>$1</h2>")
+		.replace(/^# (.+)$/gm, "<h1>$1</h1>")
+		.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+		.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+		.replace(/\*(.+?)\*/g, "<em>$1</em>")
+		.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+	const lines = html.split("\n");
+	const result: string[] = [];
+	for (const line of lines) {
+		const trimmed = line.trim();
+		if (!trimmed) continue;
+		if (trimmed.startsWith("<h")) {
+			result.push(trimmed);
+		} else if (trimmed.startsWith("- ")) {
+			result.push(`<li>${trimmed.slice(2)}</li>`);
+		} else {
+			result.push(`<p>${trimmed}</p>`);
+		}
+	}
+
+	return result
+		.join("\n")
+		.replace(/(<li>.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`);
+}
 
 interface RichTextEditorProps {
 	content: string;
 	onChange: (content: string) => void;
+	editable?: boolean;
 	onInsertBlock?: (type: string) => void;
+	pages?: PageItem[];
+	onCreatePage?: (name: string) => Promise<PageItem | null>;
 	placeholder?: string;
 }
 
-export function RichTextEditor({ content, onChange, onInsertBlock, placeholder }: RichTextEditorProps) {
+export function RichTextEditor({
+	content,
+	onChange,
+	editable = true,
+	onInsertBlock,
+	pages,
+	onCreatePage,
+	placeholder,
+}: RichTextEditorProps) {
 	const onChangeRef = useRef(onChange);
 	onChangeRef.current = onChange;
 	const userEditedRef = useRef(false);
 	const onInsertBlockRef = useRef(onInsertBlock);
 	onInsertBlockRef.current = onInsertBlock;
+	const pagesRef = useRef(pages ?? []);
+	pagesRef.current = pages ?? [];
+	const onCreatePageRef = useRef(onCreatePage);
+	onCreatePageRef.current = onCreatePage;
 
 	const slashCommands = useMemo(
 		() => createSlashCommandExtension((...args) => onInsertBlockRef.current?.(...args)),
 		[],
 	);
 
-	const editor = useEditor({
-		extensions: [
+	const pageLinkExt = useMemo(
+		() =>
+			createPageLinkExtension(
+				() => pagesRef.current,
+				async (name) => onCreatePageRef.current?.(name) ?? null,
+			),
+		[],
+	);
+
+	const htmlContent = content && looksLikeMarkdown(content) ? markdownToHtml(content) : content;
+
+	const extensions = useMemo(() => {
+		const base: any[] = [
 			StarterKit.configure({
 				heading: { levels: [1, 2, 3] },
 			}),
@@ -70,26 +137,48 @@ export function RichTextEditor({ content, onChange, onInsertBlock, placeholder }
 			Color,
 			Highlight.configure({ multicolor: true }),
 			TextAlign.configure({ types: ["heading", "paragraph"] }),
-			Link.configure({ openOnClick: false, autolink: true }),
+			Link.configure({ openOnClick: !editable, autolink: true }),
 			Image,
-			Placeholder.configure({ placeholder: placeholder ?? 'Type "/" for commands…' }),
-			slashCommands,
-		],
-		content,
-		onUpdate: ({ editor }) => {
-			userEditedRef.current = true;
-			onChangeRef.current(editor.getHTML());
-		},
+			DetailsNode,
+			DetailsSummaryNode,
+			DetailsContentNode,
+		];
+
+		if (editable) {
+			base.push(
+				Placeholder.configure({ placeholder: placeholder ?? 'Type "/" for commands…' }),
+				slashCommands,
+				pageLinkExt,
+			);
+		} else {
+			base.push(PageLinkNode);
+		}
+
+		return base;
+	}, [editable, placeholder, slashCommands, pageLinkExt]);
+
+	const editor = useEditor({
+		extensions,
+		content: htmlContent || "",
+		editable,
+		onUpdate: editable
+			? ({ editor }) => {
+					userEditedRef.current = true;
+					onChangeRef.current(editor.getHTML());
+				}
+			: undefined,
 	});
 
-	// Sync external content only on initial load (before user starts editing)
+	// Sync external content
 	useEffect(() => {
-		if (!editor || userEditedRef.current) return;
+		if (!editor) return;
+		if (editable && userEditedRef.current) return;
+		const newHtml = content && looksLikeMarkdown(content) ? markdownToHtml(content) : content;
 		const currentHTML = editor.getHTML();
-		if (content !== currentHTML) {
-			editor.commands.setContent(content, { emitUpdate: false });
+		if (newHtml !== currentHTML) {
+			editor.commands.setContent(newHtml || "", { emitUpdate: false });
 		}
-	}, [content, editor]);
+	}, [content, editor, editable]);
 
 	const setLink = useCallback(() => {
 		if (!editor) return;
@@ -111,11 +200,23 @@ export function RichTextEditor({ content, onChange, onInsertBlock, placeholder }
 		[editor],
 	);
 
+	if (!editable && !content) {
+		return <p className="text-sm text-muted-foreground">No content yet.</p>;
+	}
+
 	if (!editor) return null;
+
+	if (!editable) {
+		return (
+			<div className="tiptap-content">
+				<EditorContent editor={editor} />
+			</div>
+		);
+	}
 
 	return (
 		<div className="rounded-md border border-border">
-			{/* Toolbar */}
+			{/* Fixed Toolbar */}
 			<div className="flex flex-wrap gap-0.5 border-b border-border bg-muted/50 p-1">
 				{/* Undo / Redo */}
 				<ToolbarButton
@@ -273,8 +374,57 @@ export function RichTextEditor({ content, onChange, onInsertBlock, placeholder }
 				<ImageInsertPopover onInsert={insertImage} />
 			</div>
 
+			{/* BubbleMenu — floating toolbar on text selection */}
+			<BubbleMenu
+				editor={editor}
+				className="flex items-center gap-0.5 rounded-md border border-border bg-popover p-1 shadow-md"
+			>
+				<ToolbarButton
+					active={editor.isActive("bold")}
+					onClick={() => editor.chain().focus().toggleBold().run()}
+					title="Bold"
+				>
+					<Bold className="h-3.5 w-3.5" />
+				</ToolbarButton>
+				<ToolbarButton
+					active={editor.isActive("italic")}
+					onClick={() => editor.chain().focus().toggleItalic().run()}
+					title="Italic"
+				>
+					<Italic className="h-3.5 w-3.5" />
+				</ToolbarButton>
+				<ToolbarButton
+					active={editor.isActive("underline")}
+					onClick={() => editor.chain().focus().toggleUnderline().run()}
+					title="Underline"
+				>
+					<UnderlineIcon className="h-3.5 w-3.5" />
+				</ToolbarButton>
+				<ToolbarButton
+					active={editor.isActive("strike")}
+					onClick={() => editor.chain().focus().toggleStrike().run()}
+					title="Strikethrough"
+				>
+					<Strikethrough className="h-3.5 w-3.5" />
+				</ToolbarButton>
+				<ToolbarButton
+					active={editor.isActive("code")}
+					onClick={() => editor.chain().focus().toggleCode().run()}
+					title="Code"
+				>
+					<Code className="h-3.5 w-3.5" />
+				</ToolbarButton>
+				<ToolbarButton
+					active={editor.isActive("link")}
+					onClick={setLink}
+					title="Link"
+				>
+					<LinkIcon className="h-3.5 w-3.5" />
+				</ToolbarButton>
+			</BubbleMenu>
+
 			{/* Editor area */}
-			<EditorContent editor={editor} className="tiptap-editor" />
+			<EditorContent editor={editor} className="tiptap-content" />
 		</div>
 	);
 }

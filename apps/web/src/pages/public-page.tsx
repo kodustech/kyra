@@ -1,4 +1,4 @@
-import { RichTextRenderer } from "@/components/blocks/rich-text-renderer";
+import { RichTextEditor } from "@/components/blocks/rich-text-editor";
 import { KanbanBoard } from "@/components/kanban/kanban-board";
 import { DataTable } from "@/components/records/data-table";
 import { DynamicForm } from "@/components/records/dynamic-form";
@@ -69,7 +69,7 @@ export function PublicPage() {
 						}
 					>
 						{block.viewType === "richtext" ? (
-							<RichTextRenderer content={block.content ?? ""} />
+							<RichTextEditor editable={false} content={block.content ?? ""} onChange={() => {}} />
 						) : (
 							<>
 								{showTitle && <h2 className="mb-4 text-lg font-medium">{displayTitle}</h2>}

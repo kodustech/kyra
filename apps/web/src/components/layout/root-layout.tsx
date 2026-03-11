@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/auth-provider";
 import { canEditContent, canManageDatabases } from "@kyra/shared";
 import { Database, PinOff, Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 import { Header } from "./header";
 import { Sidebar } from "./sidebar";
@@ -32,6 +32,17 @@ export function RootLayout() {
 	const [showCreatePage, setShowCreatePage] = useState(false);
 	const [pinned, setPinned] = useState(getInitialPinned);
 	const [hovered, setHovered] = useState(false);
+	// Keep sidebar mounted during exit animation
+	const [mounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		if (hovered) {
+			setMounted(true);
+		} else {
+			const timer = setTimeout(() => setMounted(false), 200);
+			return () => clearTimeout(timer);
+		}
+	}, [hovered]);
 
 	function handlePinChange(value: boolean) {
 		setPinned(value);
@@ -141,8 +152,15 @@ export function RootLayout() {
 					</aside>
 
 					{/* Full sidebar overlay on hover */}
-					{hovered && (
-						<div className="absolute left-0 top-0 z-40 h-full w-64 shadow-xl">
+					{mounted && (
+						<div
+							className={cn(
+								"absolute left-0 top-0 z-40 h-full w-64 shadow-xl transition-all duration-200 ease-out",
+								hovered
+									? "translate-x-0 opacity-100"
+									: "-translate-x-4 opacity-0 pointer-events-none",
+							)}
+						>
 							<Sidebar {...sidebarProps} />
 						</div>
 					)}
