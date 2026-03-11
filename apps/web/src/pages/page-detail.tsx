@@ -297,31 +297,31 @@ function PreviewView({ pageId }: { pageId: string }) {
 							<RichTextEditor editable={false} content={block.content ?? ""} onChange={() => {}} />
 						) : (
 							<>
-								<div className={`flex items-center justify-between ${showTitle ? "mb-4" : "mb-1"}`}>
-									{showTitle && (
+								{showTitle && (
+									<div className="mb-4">
 										<h3 className="text-lg font-medium">{displayTitle}</h3>
-									)}
-									<div className={showTitle ? "" : "ml-auto"}>
-									<BlockSettings
-										title={block.title}
-										icon={block.icon}
-										showTitle={block.showTitle !== false}
-										showBorder={block.showBorder !== false}
-										viewType={block.viewType}
-										onUpdate={(input) => handleBlockUpdate(block.id, input)}
-										fields={colConfig?.fields}
-										visibleIds={colConfig?.visibleIds}
-										orderedIds={colConfig?.orderedIds}
-										onColumnChange={colConfig?.handleColumnChange}
-									/>
 									</div>
-								</div>
+								)}
 								<BlockRenderer
 									databaseId={block.databaseId!}
 									databaseName={block.database?.name ?? ""}
 									viewType={block.viewType}
 									onColumnConfigReady={(config) =>
 										handleColumnConfigReady(block.id, config)
+									}
+									toolbarExtra={
+										<BlockSettings
+											title={block.title}
+											icon={block.icon}
+											showTitle={block.showTitle !== false}
+											showBorder={block.showBorder !== false}
+											viewType={block.viewType}
+											onUpdate={(input) => handleBlockUpdate(block.id, input)}
+											fields={colConfig?.fields}
+											visibleIds={colConfig?.visibleIds}
+											orderedIds={colConfig?.orderedIds}
+											onColumnChange={colConfig?.handleColumnChange}
+										/>
 									}
 								/>
 							</>

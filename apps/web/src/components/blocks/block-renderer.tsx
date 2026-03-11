@@ -34,6 +34,7 @@ interface BlockRendererProps {
 	readOnly?: boolean;
 	onSubmit?: (data: { [fieldId: string]: unknown }) => Promise<void>;
 	onColumnConfigReady?: (config: ColumnConfig) => void;
+	toolbarExtra?: React.ReactNode;
 }
 
 export function BlockRenderer({
@@ -43,6 +44,7 @@ export function BlockRenderer({
 	readOnly,
 	onSubmit,
 	onColumnConfigReady,
+	toolbarExtra,
 }: BlockRendererProps) {
 	const { fields, loading: fieldsLoading, update: updateField } = useFields(databaseId);
 	const {
@@ -196,11 +198,14 @@ export function BlockRenderer({
 
 		return (
 			<>
-				{!readOnly && (
-					<div className="mb-3 flex items-center justify-end">
-						<Button size="sm" onClick={() => setShowAdd(true)}>
-							<Plus className="mr-2 h-4 w-4" /> Add Record
-						</Button>
+				{(!readOnly || toolbarExtra) && (
+					<div className="mb-3 flex items-center justify-end gap-2">
+						{toolbarExtra}
+						{!readOnly && (
+							<Button size="sm" onClick={() => setShowAdd(true)}>
+								<Plus className="mr-2 h-4 w-4" /> Add Record
+							</Button>
+						)}
 					</div>
 				)}
 

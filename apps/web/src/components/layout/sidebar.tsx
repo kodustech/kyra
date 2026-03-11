@@ -16,8 +16,19 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import type { Database as DatabaseType, Page as PageType, UserRole } from "@kyra/shared";
 import { canEditContent, canManageDatabases } from "@kyra/shared";
+import { DeletePageDialog } from "@/components/pages/delete-page-dialog";
+import { EditPageDialog } from "@/components/pages/edit-page-dialog";
 import { PageIcon } from "@/components/ui/icon-picker";
-import { ChevronDown, Database, GripVertical, Pin, PinOff, Plus } from "lucide-react";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
+import { usePages } from "@/hooks/use-pages";
+import { ChevronDown, Database, GripVertical, MoreHorizontal, Pin, PinOff, Plus, Settings, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router";
 
@@ -45,8 +56,12 @@ export function Sidebar({
 	userRole,
 }: SidebarProps) {
 	const location = useLocation();
+	const { update } = usePages();
 	const [pagesOpen, setPagesOpen] = useState(true);
 	const [dbOpen, setDbOpen] = useState(true);
+	const [editingPage, setEditingPage] = useState<PageType | null>(null);
+	const [deletingPage, setDeletingPage] = useState<PageType | null>(null);
+	const isEditor = !userRole || canEditContent(userRole);
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -115,13 +130,16 @@ export function Sidebar({
 								strategy={verticalListSortingStrategy}
 							>
 								{pages.map((page) => (
-									<SortableNavItem
+									<SortablePageItem
 										key={page.id}
-										id={page.id}
-										to={`/pages/${page.id}`}
-										label={page.name}
-										icon={<PageIcon name={page.icon} className="h-4 w-4 shrink-0" />}
+										page={page}
 										active={location.pathname === `/pages/${page.id}`}
+										showMenu={isEditor}
+										onEdit={() => setEditingPage(page)}
+										onDelete={() => setDeletingPage(page)}
+										onPublishToggle={async (value) => {
+											await update(page.id, { published: value });
+										}}
 									/>
 								))}
 							</SortableContext>
@@ -172,6 +190,16 @@ export function Sidebar({
 					)}
 				</>
 			)}
+			<EditPageDialog
+				page={editingPage}
+				open={editingPage !== null}
+				onOpenChange={(open) => { if (!open) setEditingPage(null); }}
+			/>
+			<DeletePageDialog
+				page={deletingPage}
+				open={deletingPage !== null}
+				onOpenChange={(open) => { if (!open) setDeletingPage(null); }}
+			/>
 		</aside>
 	);
 }
@@ -219,6 +247,92 @@ function SectionHeader({
 				>
 					<Plus className="h-3.5 w-3.5" />
 				</button>
+			)}
+		</div>
+	);
+}
+
+// ─── Sortable Page Item (with dropdown menu) ───────────────────────────────────
+
+function SortablePageItem({
+	page,
+	active,
+	showMenu,
+	onEdit,
+	onDelete,
+	onPublishToggle,
+}: {
+	page: PageType;
+	active: boolean;
+	showMenu: boolean;
+	onEdit: () => void;
+	onDelete: () => void;
+	onPublishToggle: (value: boolean) => void;
+}) {
+	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+		id: page.id,
+	});
+
+	const style = {
+		transform: CSS.Transform.toString(transform),
+		transition,
+		opacity: isDragging ? 0.5 : 1,
+	};
+
+	return (
+		<div ref={setNodeRef} style={style} className="group flex items-center">
+			<button
+				type="button"
+				className="flex h-8 w-5 shrink-0 cursor-grab items-center justify-center text-transparent group-hover:text-muted-foreground"
+				{...attributes}
+				{...listeners}
+			>
+				<GripVertical className="h-3 w-3" />
+			</button>
+			<Link
+				to={`/pages/${page.id}`}
+				className={`flex flex-1 items-center gap-2 rounded-lg px-2 py-2 text-sm transition-colors ${
+					active
+						? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+						: "text-sidebar-foreground hover:bg-sidebar-accent"
+				}`}
+			>
+				<PageIcon name={page.icon} className="h-4 w-4 shrink-0" />
+				<span className="truncate">{page.name}</span>
+			</Link>
+			{showMenu && (
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<button
+							type="button"
+							className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-transparent group-hover:text-muted-foreground hover:bg-sidebar-accent transition-colors"
+						>
+							<MoreHorizontal className="h-4 w-4" />
+						</button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent side="right" align="start">
+						<DropdownMenuItem onClick={onEdit}>
+							<Settings className="h-4 w-4" />
+							Settings
+						</DropdownMenuItem>
+						<DropdownMenuItem
+							onSelect={(e) => e.preventDefault()}
+							className="flex items-center justify-between"
+						>
+							<span className="text-sm">Published</span>
+							<Switch
+								checked={page.published}
+								onCheckedChange={onPublishToggle}
+								className="ml-2 scale-75"
+							/>
+						</DropdownMenuItem>
+						<DropdownMenuSeparator />
+						<DropdownMenuItem variant="destructive" onClick={onDelete}>
+							<Trash2 className="h-4 w-4" />
+							Delete
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
 			)}
 		</div>
 	);
