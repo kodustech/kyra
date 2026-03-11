@@ -60,6 +60,7 @@ blocks.post("/", requireRole("owner", "admin", "editor"), async (c) => {
 		blockTitle = dbRow?.name ?? null;
 	}
 
+	const isForm = body.viewType === "form";
 	const insertPayload =
 		body.viewType === "richtext"
 			? {
@@ -73,6 +74,8 @@ blocks.post("/", requireRole("owner", "admin", "editor"), async (c) => {
 					databaseId: body.databaseId,
 					viewType: body.viewType as "form" | "table" | "kanban",
 					title: blockTitle,
+					showTitle: isForm,
+					showBorder: isForm,
 					position: nextPosition,
 				};
 

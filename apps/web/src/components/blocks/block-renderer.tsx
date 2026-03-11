@@ -353,11 +353,18 @@ export function BlockRenderer({
 	}
 
 	return (
-		<DynamicForm
-			fields={fields}
-			onSubmit={handleFormSubmit}
-			onCancel={() => {}}
-			submitLabel="Submit"
-		/>
+		<>
+			{toolbarExtra && (
+				<div className="mb-3 flex items-center justify-end gap-2">
+					{toolbarExtra}
+				</div>
+			)}
+			<DynamicForm
+				fields={fields}
+				onSubmit={handleFormSubmit}
+				onCancel={() => {}}
+				submitLabel="Submit"
+			/>
+		</>
 	);
 }

@@ -7,15 +7,31 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { useBlocks } from "@/hooks/use-blocks";
+import { useDatabases } from "@/hooks/use-databases";
 import { usePages } from "@/hooks/use-pages";
 import { api } from "@/lib/api";
-import type { Page, UpdateBlockInput } from "@kyra/shared";
+import type { CreateBlockInput, Page, UpdateBlockInput, ViewType } from "@kyra/shared";
 import { canEditContent } from "@kyra/shared";
 import { IconPicker } from "@/components/ui/icon-picker";
 import { useAuth } from "@/providers/auth-provider";
 import { ExternalLink, Eye, Settings, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
@@ -240,9 +256,54 @@ function ConfigView({
 // ─── Preview View ───────────────────────────────────────────────────────────────
 
 function PreviewView({ pageId }: { pageId: string }) {
-	const { blocks, loading, update } = useBlocks(pageId);
+	const { blocks, loading, update, create: createBlock } = useBlocks(pageId);
+	const { pages, create: createPage } = usePages();
+	const { databases } = useDatabases();
 	const [columnConfigs, setColumnConfigs] = useState<Record<string, ColumnConfig>>({});
 	const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+	const [slashBlockType, setSlashBlockType] = useState<string | null>(null);
+	const [slashDbId, setSlashDbId] = useState("");
+
+	const handleSlashInsertBlock = useCallback((type: string) => {
+		setSlashBlockType(type);
+		setSlashDbId("");
+	}, []);
+
+	async function handleSlashBlockConfirm() {
+		if (!slashBlockType || !slashDbId) return;
+		try {
+			await createBlock({
+				viewType: slashBlockType as ViewType,
+				databaseId: slashDbId,
+			} as CreateBlockInput);
+			toast.success("Block added");
+		} catch (err) {
+			toast.error((err as Error).message);
+		}
+		setSlashBlockType(null);
+		setSlashDbId("");
+	}
+
+	const pageItems = useMemo(
+		() => pages.map((p) => ({ id: p.id, name: p.name, slug: p.slug, icon: p.icon })),
+		[pages],
+	);
+
+	const handleCreatePageFromEditor = useCallback(
+		async (name: string) => {
+			try {
+				const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "untitled";
+				const suffix = Math.random().toString(36).slice(2, 6);
+				const slug = `${base}-${suffix}`;
+				const page = await createPage({ name, slug, published: false });
+				return { id: page.id, name: page.name, slug: page.slug, icon: page.icon };
+			} catch (err) {
+				toast.error((err as Error).message);
+				return null;
+			}
+		},
+		[createPage],
+	);
 
 	// Clean up debounce timers on unmount
 	useEffect(() => {
@@ -324,6 +385,9 @@ function PreviewView({ pageId }: { pageId: string }) {
 								showToolbar={false}
 								content={block.content ?? ""}
 								onChange={(content) => handleRichTextChange(block.id, content)}
+								onInsertBlock={handleSlashInsertBlock}
+								pages={pageItems}
+								onCreatePage={handleCreatePageFromEditor}
 							/>
 						) : (
 							<>
@@ -359,6 +423,41 @@ function PreviewView({ pageId }: { pageId: string }) {
 					</div>
 				);
 			})}
+
+			{/* Mini dialog: pick database when inserting block via slash command */}
+			<Dialog open={!!slashBlockType} onOpenChange={(o) => !o && setSlashBlockType(null)}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>
+							Insert {slashBlockType === "table" ? "Table" : slashBlockType === "kanban" ? "Kanban" : "Form"} View
+						</DialogTitle>
+						<DialogDescription>Choose which database to display.</DialogDescription>
+					</DialogHeader>
+					<div className="mt-4 space-y-2">
+						<Label>Database</Label>
+						<Select value={slashDbId} onValueChange={setSlashDbId}>
+							<SelectTrigger>
+								<SelectValue placeholder="Select a database" />
+							</SelectTrigger>
+							<SelectContent>
+								{databases.map((db) => (
+									<SelectItem key={db.id} value={db.id}>
+										{db.name}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+					<DialogFooter className="mt-4">
+						<Button variant="outline" onClick={() => setSlashBlockType(null)}>
+							Cancel
+						</Button>
+						<Button onClick={handleSlashBlockConfirm} disabled={!slashDbId}>
+							Insert
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }
