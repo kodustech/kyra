@@ -9,6 +9,19 @@ import { dispatchWebhooks } from "../lib/webhook";
 
 export const records = new Hono<AppEnv>();
 
+function enrichRecord(
+	record: { id: string; databaseId: string; data: Record<string, unknown>; createdAt: unknown; updatedAt: unknown },
+	fields: Field[],
+) {
+	const idToSlug = new Map(fields.map((f) => [f.id, f.slug]));
+	const slugData: Record<string, unknown> = {};
+	for (const [key, value] of Object.entries(record.data)) {
+		const slug = idToSlug.get(key);
+		slugData[slug ?? key] = value;
+	}
+	return { ...record, slugData };
+}
+
 async function getFields(databaseId: string): Promise<Field[]> {
 	const data = await db
 		.select()
@@ -26,7 +39,7 @@ records.get("/", async (c) => {
 	const limit = Math.min(Number(c.req.query("limit") || "50"), 100);
 	const offset = (page - 1) * limit;
 
-	const [data, [{ total }]] = await Promise.all([
+	const [data, [{ total }], dbFields] = await Promise.all([
 		db
 			.select()
 			.from(recordsTable)
@@ -38,9 +51,10 @@ records.get("/", async (c) => {
 			.select({ total: sql<number>`count(*)::int` })
 			.from(recordsTable)
 			.where(eq(recordsTable.databaseId, databaseId)),
+		getFields(databaseId),
 	]);
 
-	return c.json({ data, total, page, limit });
+	return c.json({ data: data.map((r) => enrichRecord(r, dbFields)), total, page, limit });
 });
 
 // POST / — Create record (with dynamic validation)
@@ -75,7 +89,7 @@ records.post("/", requireRole("owner", "admin", "editor"), async (c) => {
 		record: data,
 	});
 
-	return c.json(data, 201);
+	return c.json(enrichRecord(data, dbFields), 201);
 });
 
 // PATCH /:recordId — Update record
@@ -128,7 +142,7 @@ records.patch("/:recordId", requireRole("owner", "admin", "editor"), async (c) =
 		changes,
 	});
 
-	return c.json(data);
+	return c.json(enrichRecord(data, dbFields));
 });
 
 // DELETE /:recordId — Delete record

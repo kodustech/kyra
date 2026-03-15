@@ -55,6 +55,7 @@ export function KanbanBoard({
 	readOnly,
 	onCreateRecord,
 	onUpdateRecord,
+	onDeleteRecord,
 	onAddStatus,
 	onReorderColumns,
 }: KanbanBoardProps) {
@@ -272,6 +273,10 @@ export function KanbanBoard({
 					}}
 					onSubmit={async (data: { [fieldId: string]: unknown }) => {
 						await onUpdateRecord(editingRecord.id, data);
+						setEditingRecord(null);
+					}}
+					onDelete={async (recordId: string) => {
+						await onDeleteRecord(recordId);
 						setEditingRecord(null);
 					}}
 				/>
