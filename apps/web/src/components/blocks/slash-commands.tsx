@@ -6,6 +6,8 @@ import Suggestion, { type SuggestionOptions } from "@tiptap/suggestion";
 import {
 	AlignLeft,
 	ChevronRight,
+	Columns2,
+	Columns3,
 	FileText,
 	FormInput,
 	Heading1,
@@ -13,6 +15,7 @@ import {
 	Heading3,
 	ImageIcon,
 	Kanban,
+	LayoutPanelTop,
 	List,
 	ListOrdered,
 	Minus,
@@ -39,7 +42,10 @@ export interface SlashCommandItem {
 	category: "basic" | "blocks";
 }
 
-export function getSlashCommands(onInsertBlock?: (type: string) => void): SlashCommandItem[] {
+export function getSlashCommands(
+	onInsertBlock?: (type: string) => void,
+	getPages?: () => { id: string; name: string; slug: string; icon: string | null }[],
+): SlashCommandItem[] {
 	return [
 		{
 			title: "Text",
@@ -172,6 +178,102 @@ export function getSlashCommands(onInsertBlock?: (type: string) => void): SlashC
 			command: ({ editor, range }) => {
 				// Delete the slash command range and insert [[ to trigger the page link suggestion
 				editor.chain().focus().deleteRange(range).insertContent("[[").run();
+			},
+		},
+		{
+			title: "Page Card",
+			description: "Card with icon linking to a page",
+			icon: LayoutPanelTop,
+			category: "basic",
+			command: ({ editor, range }) => {
+				editor.chain().focus().deleteRange(range).run();
+				// Show a simple prompt to pick from pages
+				const pages = getPages?.() ?? [];
+				if (pages.length === 0) {
+					alert("No pages available");
+					return;
+				}
+				// Create a floating picker
+				const popup = document.createElement("div");
+				popup.className = "page-card-picker";
+				popup.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:100;background:var(--color-popover,#fff);border:1px solid var(--color-border,#e5e7eb);border-radius:0.5rem;padding:0.5rem;box-shadow:0 10px 25px rgba(0,0,0,0.15);max-height:300px;overflow-y:auto;min-width:250px;";
+
+				const backdrop = document.createElement("div");
+				backdrop.style.cssText = "position:fixed;inset:0;z-index:99;";
+				backdrop.onclick = () => { popup.remove(); backdrop.remove(); };
+
+				for (const page of pages) {
+					const btn = document.createElement("button");
+					btn.type = "button";
+					btn.style.cssText = "display:flex;align-items:center;gap:0.5rem;width:100%;padding:0.5rem 0.75rem;border:none;background:none;cursor:pointer;border-radius:0.375rem;font-size:0.875rem;text-align:left;";
+					btn.onmouseenter = () => { btn.style.background = "var(--color-accent,#f3f4f6)"; };
+					btn.onmouseleave = () => { btn.style.background = "none"; };
+					btn.textContent = `${page.icon || "📄"} ${page.name}`;
+					btn.onclick = () => {
+						editor
+							.chain()
+							.focus()
+							.insertContent({
+								type: "pageCard",
+								attrs: {
+									pageId: page.id,
+									pageName: page.name,
+									pageSlug: page.slug,
+									pageIcon: page.icon,
+								},
+							})
+							.run();
+						popup.remove();
+						backdrop.remove();
+					};
+					popup.appendChild(btn);
+				}
+
+				document.body.appendChild(backdrop);
+				document.body.appendChild(popup);
+			},
+		},
+		{
+			title: "2 Columns",
+			description: "Side by side layout",
+			icon: Columns2,
+			category: "basic",
+			command: ({ editor, range }) => {
+				editor
+					.chain()
+					.focus()
+					.deleteRange(range)
+					.insertContent({
+						type: "columns",
+						attrs: { count: 2 },
+						content: [
+							{ type: "column", content: [{ type: "paragraph" }] },
+							{ type: "column", content: [{ type: "paragraph" }] },
+						],
+					})
+					.run();
+			},
+		},
+		{
+			title: "3 Columns",
+			description: "Three column layout",
+			icon: Columns3,
+			category: "basic",
+			command: ({ editor, range }) => {
+				editor
+					.chain()
+					.focus()
+					.deleteRange(range)
+					.insertContent({
+						type: "columns",
+						attrs: { count: 3 },
+						content: [
+							{ type: "column", content: [{ type: "paragraph" }] },
+							{ type: "column", content: [{ type: "paragraph" }] },
+							{ type: "column", content: [{ type: "paragraph" }] },
+						],
+					})
+					.run();
 			},
 		},
 		// ─── Block commands (database views) ─────────────────────────────────
@@ -320,8 +422,9 @@ CommandMenu.displayName = "CommandMenu";
 
 export function createSlashCommandExtension(
 	onInsertBlock?: (type: string) => void,
+	getPages?: () => { id: string; name: string; slug: string; icon: string | null }[],
 ) {
-	const items = getSlashCommands(onInsertBlock);
+	const items = getSlashCommands(onInsertBlock, getPages);
 
 	return Extension.create({
 		name: "slashCommands",

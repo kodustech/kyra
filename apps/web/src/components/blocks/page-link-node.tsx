@@ -63,12 +63,23 @@ export const PageLinkNode = Node.create({
 
 // ─── Inline chip (editor mode) ──────────────────────────────────────────────
 
-function PageLinkChip({ node }: { node: any }) {
-	const { pageName, pageIcon } = node.attrs;
+function PageLinkChip({ node, editor }: { node: any; editor: any }) {
+	const { pageId, pageName, pageIcon } = node.attrs;
+
+	const handleClick = (e: React.MouseEvent) => {
+		e.preventDefault();
+		if (!editor.isEditable) {
+			window.location.href = `/pages/${pageId}`;
+		}
+	};
 
 	return (
 		<NodeViewWrapper as="span" className="inline">
-			<span className="inline-flex items-center gap-1 rounded bg-accent/60 px-1.5 py-0.5 text-sm font-medium text-accent-foreground cursor-default">
+			<span
+				className={`inline-flex items-center gap-1 rounded bg-accent/60 px-1.5 py-0.5 text-sm font-medium text-accent-foreground ${editor.isEditable ? "cursor-default" : "cursor-pointer hover:bg-accent"}`}
+				onClick={handleClick}
+				role={editor.isEditable ? undefined : "link"}
+			>
 				<PageIcon name={pageIcon} className="h-3.5 w-3.5 shrink-0" />
 				<span>{pageName || "Untitled"}</span>
 			</span>
@@ -328,7 +339,7 @@ export function createPageLinkExtension(
 	});
 }
 
-// ─── Static PageLink node for renderer (no suggestion, no nodeview) ─────────
+// ─── Static PageLink node for renderer (read-only, uses same chip with navigation) ─
 
 export const PageLinkRendererNode = Node.create({
 	name: "pageLink",
@@ -359,5 +370,9 @@ export const PageLinkRendererNode = Node.create({
 			}),
 			HTMLAttributes.pageName || "Untitled",
 		];
+	},
+
+	addNodeView() {
+		return ReactNodeViewRenderer(PageLinkChip);
 	},
 });

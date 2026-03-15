@@ -40,7 +40,9 @@ import {
 	Upload,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ColumnsNode, ColumnNode } from "./columns-node";
 import { DetailsNode, DetailsSummaryNode, DetailsContentNode } from "./details-node";
+import { PageCardNode, PageCardRendererNode } from "./page-card-node";
 import { createPageLinkExtension, PageLinkNode, type PageItem } from "./page-link-node";
 import { createSlashCommandExtension } from "./slash-commands";
 
@@ -114,7 +116,10 @@ export function RichTextEditor({
 	onCreatePageRef.current = onCreatePage;
 
 	const slashCommands = useMemo(
-		() => createSlashCommandExtension((...args) => onInsertBlockRef.current?.(...args)),
+		() => createSlashCommandExtension(
+			(...args) => onInsertBlockRef.current?.(...args),
+			() => pagesRef.current,
+		),
 		[],
 	);
 
@@ -144,6 +149,8 @@ export function RichTextEditor({
 			DetailsNode,
 			DetailsSummaryNode,
 			DetailsContentNode,
+			ColumnsNode,
+			ColumnNode,
 		];
 
 		if (editable) {
@@ -151,9 +158,10 @@ export function RichTextEditor({
 				Placeholder.configure({ placeholder: placeholder ?? 'Type "/" for commands…' }),
 				slashCommands,
 				pageLinkExt,
+				PageCardNode,
 			);
 		} else {
-			base.push(PageLinkNode);
+			base.push(PageLinkNode, PageCardRendererNode);
 		}
 
 		return base;
