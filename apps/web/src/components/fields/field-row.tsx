@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -39,14 +38,14 @@ export function FieldRow({ field, onEdit, onDelete }: FieldRowProps) {
 
 			<span className="flex-1 truncate text-sm font-medium">{field.name}</span>
 
-			<Badge variant="secondary" className="text-xs">
+			<span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium text-white" style={{ backgroundColor: "#643A71" }}>
 				{field.type}
-			</Badge>
+			</span>
 
 			{field.required && (
-				<Badge variant="outline" className="text-xs">
+				<span className="inline-flex items-center rounded-full border border-border px-2.5 py-0.5 text-xs font-medium">
 					required
-				</Badge>
+				</span>
 			)}
 
 			<Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(field)}>

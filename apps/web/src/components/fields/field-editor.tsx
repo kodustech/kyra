@@ -10,8 +10,8 @@ import {
 import { useFields } from "@/hooks/use-fields";
 import { useDatabases } from "@/hooks/use-databases";
 import type { CreateFieldInput, Field, FieldType, KanbanStatusOption, LookupSettings } from "@kyra/shared";
-import { Columns3, Plus, Search } from "lucide-react";
-import { useState } from "react";
+import { Columns3, Copy, Plus, Search } from "lucide-react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { BulkFieldEditor } from "./bulk-field-editor";
 import { FieldFormDialog } from "./field-form-dialog";
@@ -31,6 +31,16 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 	const [deleting, setDeleting] = useState(false);
 
 	const hasKanbanStatus = fields.some((f) => f.type === "kanban_status");
+
+	const copyJsonStruct = useCallback(() => {
+		const struct: { [slug: string]: string } = {};
+		for (const f of fields) {
+			if (f.type === "formula") continue;
+			struct[f.slug] = "";
+		}
+		navigator.clipboard.writeText(JSON.stringify(struct, null, 2));
+		toast.success("JSON struct copied to clipboard");
+	}, [fields]);
 
 	async function handleBulkCreate(inputs: CreateFieldInput[]) {
 		await bulkCreate(inputs);
@@ -100,6 +110,11 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 			<div className="mb-4 flex items-center justify-between">
 				<h3 className="text-lg font-medium">Fields</h3>
 				<div className="flex gap-2">
+					{fields.length > 0 && (
+						<Button size="sm" variant="outline" onClick={copyJsonStruct} title="Copy JSON struct">
+							<Copy className="mr-2 h-4 w-4" /> Copy JSON
+						</Button>
+					)}
 					<Button size="sm" variant="outline" onClick={() => setShowCreateSingle(true)}>
 						<Search className="mr-2 h-4 w-4" /> Add Lookup
 					</Button>
