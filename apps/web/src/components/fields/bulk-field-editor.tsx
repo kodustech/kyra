@@ -354,7 +354,8 @@ function SortableBulkRow({
 								value={ft}
 								disabled={
 									(ft === "kanban_status" && kanbanDisabled && row.type !== "kanban_status") ||
-									ft === "lookup"
+									ft === "lookup" ||
+									ft === "formula"
 								}
 							>
 								{ft.replace(/_/g, " ")}

@@ -10,7 +10,7 @@ import {
 import { useFields } from "@/hooks/use-fields";
 import { useDatabases } from "@/hooks/use-databases";
 import type { CreateFieldInput, Field, FieldType, KanbanStatusOption, LookupSettings } from "@kyra/shared";
-import { Columns3, Copy, Plus, Search } from "lucide-react";
+import { Columns3, Copy, FunctionSquare, Plus, Search } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { BulkFieldEditor } from "./bulk-field-editor";
@@ -26,6 +26,7 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 	const { fields, loading, create, bulkCreate, update, remove, reorder } = useFields(databaseId);
 	const [showAdd, setShowAdd] = useState(false);
 	const [showCreateSingle, setShowCreateSingle] = useState(false);
+	const [showCreateFormula, setShowCreateFormula] = useState(false);
 	const [editField, setEditField] = useState<Field | null>(null);
 	const [deleteField, setDeleteField] = useState<Field | null>(null);
 	const [deleting, setDeleting] = useState(false);
@@ -115,7 +116,10 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 							<Copy className="mr-2 h-4 w-4" /> Copy JSON
 						</Button>
 					)}
-					<Button size="sm" variant="outline" onClick={() => setShowCreateSingle(true)}>
+					<Button size="sm" className="border text-white hover:opacity-90" style={{ backgroundColor: "#643A71" }} onClick={() => setShowCreateFormula(true)}>
+						<FunctionSquare className="mr-2 h-4 w-4" /> Add Formula
+					</Button>
+					<Button size="sm" className="border text-white hover:opacity-90" style={{ backgroundColor: "#643A71" }} onClick={() => setShowCreateSingle(true)}>
 						<Search className="mr-2 h-4 w-4" /> Add Lookup
 					</Button>
 					<Button size="sm" onClick={() => setShowAdd(true)}>
@@ -154,6 +158,16 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 				defaultType="lookup"
 				databases={databases}
 				currentDatabaseId={databaseId}
+				allFields={fields}
+				onSubmit={handleCreate}
+			/>
+
+			<FieldFormDialog
+				field={null}
+				open={showCreateFormula}
+				onOpenChange={setShowCreateFormula}
+				hasKanbanStatus={hasKanbanStatus}
+				defaultType="formula"
 				allFields={fields}
 				onSubmit={handleCreate}
 			/>
