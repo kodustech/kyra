@@ -18,7 +18,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { FIELD_TYPES, LOOKUP_OPERATORS, type Database, type Field, type FieldType, type KanbanStatusOption, type LookupFilter, type LookupOperator, type LookupSettings } from "@kyra/shared";
+import { FIELD_TYPES, LOOKUP_OPERATORS, toSlug, type Database, type Field, type FieldType, type KanbanStatusOption, type LookupFilter, type LookupOperator, type LookupSettings } from "@kyra/shared";
 import { Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -80,6 +80,7 @@ interface FieldFormDialogProps {
 	currentDatabaseId?: string;
 	onSubmit: (data: {
 		name: string;
+		slug?: string;
 		type: FieldType;
 		required: boolean;
 		mask: string | null;
@@ -93,6 +94,8 @@ interface FieldFormDialogProps {
 export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, defaultType, databases, currentDatabaseId, onSubmit }: FieldFormDialogProps) {
 	const isEdit = !!field;
 	const [name, setName] = useState("");
+	const [slug, setSlug] = useState("");
+	const [slugManual, setSlugManual] = useState(false);
 	const [type, setType] = useState<FieldType>("text");
 	const [required, setRequired] = useState(false);
 	const [mask, setMask] = useState("");
@@ -127,6 +130,8 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, de
 	useEffect(() => {
 		if (field) {
 			setName(field.name);
+			setSlug(field.slug || toSlug(field.name));
+			setSlugManual(true);
 			setType(field.type);
 			setRequired(field.required);
 			setMask(field.mask || "");
@@ -150,6 +155,8 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, de
 			}
 		} else {
 			setName("");
+			setSlug("");
+			setSlugManual(false);
 			setType(defaultType ?? "text");
 			setRequired(false);
 			setMask("");
@@ -167,6 +174,8 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, de
 
 	function resetForm() {
 		setName("");
+		setSlug("");
+		setSlugManual(false);
 		setType("text");
 		setRequired(false);
 		setMask("");
@@ -221,6 +230,7 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, de
 
 			await onSubmit({
 				name: name.trim(),
+				...(isEdit && slug.trim() ? { slug: slug.trim() } : {}),
 				type,
 				required: type === "kanban_status" || type === "label" || type === "assignee" || type === "lookup" ? false : required,
 				mask: type === "kanban_status" || type === "label" || type === "assignee" || type === "lookup" ? null : mask.trim() || null,
@@ -259,10 +269,30 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, de
 							<Input
 								id="field-name"
 								value={name}
-								onChange={(e) => setName(e.target.value)}
+								onChange={(e) => {
+									setName(e.target.value);
+									if (!slugManual) {
+										setSlug(toSlug(e.target.value));
+									}
+								}}
 								placeholder="e.g. Full Name"
 								autoFocus
 							/>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="field-slug">Slug</Label>
+							<Input
+								id="field-slug"
+								value={slug}
+								onChange={(e) => {
+									setSlug(e.target.value);
+									setSlugManual(true);
+								}}
+								placeholder="e.g. full-name"
+							/>
+							<p className="text-xs text-muted-foreground">
+								Used as key in API integrations (e.g. n8n, webhooks)
+							</p>
 						</div>
 						<div className="space-y-2">
 							<Label htmlFor="field-type">Type</Label>

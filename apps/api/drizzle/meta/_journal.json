@@ -64,6 +64,13 @@
       "when": 1773233046684,
       "tag": "0008_boring_mac_gargan",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1773599397668,
+      "tag": "0009_add_field_slug",
+      "breakpoints": true
     }
   ]
 }

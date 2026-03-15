@@ -189,6 +189,7 @@ export interface Field {
 	id: string;
 	databaseId: string;
 	name: string;
+	slug: string;
 	type: FieldType;
 	required: boolean;
 	mask: string | null;
@@ -323,6 +324,7 @@ export const createFieldSchema = z
 export const updateFieldSchema = z
 	.object({
 		name: z.string().min(1).max(255).optional(),
+		slug: z.string().min(1).max(255).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase alphanumeric with hyphens").optional(),
 		type: fieldTypeSchema.optional(),
 		required: z.boolean().optional(),
 		mask: z.string().max(255).nullable().optional(),
@@ -532,6 +534,43 @@ export const updateWebhookSchema = z.object({
 
 export type CreateWebhookInput = z.infer<typeof createWebhookSchema>;
 export type UpdateWebhookInput = z.infer<typeof updateWebhookSchema>;
+
+// ─── Slug Helpers ───────────────────────────────────────────────────────────────
+
+export function toSlug(name: string): string {
+	return name
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+}
+
+/**
+ * Resolves record data keys from slugs to field IDs.
+ * Accepts both slugs and UUIDs as keys — UUIDs pass through unchanged.
+ */
+export function resolveRecordSlugs(
+	data: { [key: string]: unknown },
+	fields: Field[],
+): { [key: string]: unknown } {
+	const slugToId = new Map(fields.map((f) => [f.slug, f.id]));
+	const fieldIds = new Set(fields.map((f) => f.id));
+	const resolved: { [key: string]: unknown } = {};
+
+	for (const [key, value] of Object.entries(data)) {
+		if (fieldIds.has(key)) {
+			// Already a field ID
+			resolved[key] = value;
+		} else if (slugToId.has(key)) {
+			// It's a slug — resolve to ID
+			resolved[slugToId.get(key)!] = value;
+		} else {
+			// Unknown key — pass through (will fail validation if invalid)
+			resolved[key] = value;
+		}
+	}
+
+	return resolved;
+}
 
 // ─── Dynamic Record Validator ───────────────────────────────────────────────────
 

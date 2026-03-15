@@ -94,6 +94,7 @@ export const fields = pgTable(
 		id: uuid().primaryKey().default(sql`gen_random_uuid()`),
 		databaseId: uuid("database_id").notNull().references(() => databases.id, { onDelete: "cascade" }),
 		name: text().notNull(),
+		slug: text().notNull(),
 		type: fieldTypeEnum().notNull(),
 		required: boolean().notNull().default(false),
 		mask: text(),
@@ -113,6 +114,7 @@ export const fields = pgTable(
 	(t) => [
 		index("idx_fields_database_id").on(t.databaseId),
 		index("idx_fields_position").on(t.databaseId, t.position),
+		uniqueIndex("idx_fields_database_slug").on(t.databaseId, t.slug),
 	],
 );
 

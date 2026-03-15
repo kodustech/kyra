@@ -1,6 +1,6 @@
-import { bulkCreateFieldsSchema, createFieldSchema, reorderFieldsSchema, updateFieldSchema } from "@kyra/shared";
+import { bulkCreateFieldsSchema, createFieldSchema, reorderFieldsSchema, updateFieldSchema, toSlug } from "@kyra/shared";
 import type { BulkCreateFieldsInput, CreateFieldInput } from "@kyra/shared";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, like } from "drizzle-orm";
 import { Hono } from "hono";
 import { type AppEnv, requireRole } from "../lib/auth";
 import { db } from "../db";
@@ -8,6 +8,26 @@ import { fields as fieldsTable } from "../db/schema";
 import { parseBody } from "../lib/validate";
 
 export const fields = new Hono<AppEnv>();
+
+async function uniqueSlug(databaseId: string, baseSlug: string, excludeFieldId?: string): Promise<string> {
+	const existing = await db
+		.select({ slug: fieldsTable.slug })
+		.from(fieldsTable)
+		.where(and(eq(fieldsTable.databaseId, databaseId), like(fieldsTable.slug, `${baseSlug}%`)));
+
+	const taken = new Set(existing.map((r) => r.slug));
+	if (excludeFieldId) {
+		// When updating, exclude the field itself from collision check
+		const [self] = await db.select({ slug: fieldsTable.slug }).from(fieldsTable).where(eq(fieldsTable.id, excludeFieldId));
+		if (self) taken.delete(self.slug);
+	}
+
+	if (!taken.has(baseSlug)) return baseSlug;
+
+	let i = 2;
+	while (taken.has(`${baseSlug}-${i}`)) i++;
+	return `${baseSlug}-${i}`;
+}
 
 // GET / — List fields for a database
 fields.get("/", async (c) => {
@@ -72,10 +92,13 @@ fields.post("/", requireRole("owner", "admin"), async (c) => {
 		};
 	}
 
+	const slug = await uniqueSlug(databaseId, toSlug(body.name));
+
 	const [data] = await db
 		.insert(fieldsTable)
 		.values({
 			name: body.name,
+			slug,
 			type: body.type,
 			required: body.type === "kanban_status" || body.type === "label" || body.type === "assignee" || body.type === "lookup" ? false : body.required,
 			mask: body.type === "assignee" || body.type === "label" || body.type === "lookup" ? null : (body.mask ?? null),
@@ -127,6 +150,25 @@ fields.post("/bulk", requireRole("owner", "admin"), async (c) => {
 
 	const startPosition = last ? last.position + 1 : 0;
 
+	// Generate unique slugs for the batch
+	const existingSlugs = await db
+		.select({ slug: fieldsTable.slug })
+		.from(fieldsTable)
+		.where(eq(fieldsTable.databaseId, databaseId));
+	const takenSlugs = new Set(existingSlugs.map((r) => r.slug));
+
+	function nextSlug(name: string): string {
+		const base = toSlug(name);
+		let candidate = base;
+		let i = 2;
+		while (takenSlugs.has(candidate)) {
+			candidate = `${base}-${i}`;
+			i++;
+		}
+		takenSlugs.add(candidate);
+		return candidate;
+	}
+
 	// Build rows
 	const rows = inputs.map((input, index) => {
 		let settings = input.settings ?? null;
@@ -150,6 +192,7 @@ fields.post("/bulk", requireRole("owner", "admin"), async (c) => {
 
 		return {
 			name: input.name,
+			slug: nextSlug(input.name),
 			type: input.type,
 			required: input.type === "kanban_status" || input.type === "label" || input.type === "assignee" || input.type === "lookup" ? false : input.required,
 			mask: input.type === "assignee" || input.type === "label" || input.type === "lookup" ? null : (input.mask ?? null),
@@ -170,12 +213,22 @@ fields.post("/bulk", requireRole("owner", "admin"), async (c) => {
 // PATCH /:fieldId — Update field
 fields.patch("/:fieldId", requireRole("owner", "admin"), async (c) => {
 	const fieldId = c.req.param("fieldId");
+	const databaseId = c.req.param("databaseId");
 	const parsed = await parseBody(c, updateFieldSchema);
 	if ("error" in parsed) return parsed.error;
 
+	const updates: Record<string, unknown> = { ...parsed.data, updatedAt: new Date() };
+
+	// Use explicit slug if provided, otherwise regenerate from name
+	if (parsed.data.slug) {
+		updates.slug = await uniqueSlug(databaseId, parsed.data.slug, fieldId);
+	} else if (parsed.data.name) {
+		updates.slug = await uniqueSlug(databaseId, toSlug(parsed.data.name), fieldId);
+	}
+
 	const [data] = await db
 		.update(fieldsTable)
-		.set({ ...parsed.data, updatedAt: new Date() })
+		.set(updates)
 		.where(eq(fieldsTable.id, fieldId))
 		.returning();
 

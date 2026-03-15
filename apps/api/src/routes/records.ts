@@ -1,4 +1,4 @@
-import { buildRecordValidator } from "@kyra/shared";
+import { buildRecordValidator, resolveRecordSlugs } from "@kyra/shared";
 import type { Field, LookupSettings } from "@kyra/shared";
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
@@ -55,8 +55,9 @@ records.post("/", requireRole("owner", "admin", "editor"), async (c) => {
 	}
 
 	const body = await c.req.json();
+	const resolvedData = resolveRecordSlugs(body.data ?? {}, dbFields);
 	const validator = buildRecordValidator(dbFields);
-	const result = validator.safeParse(body.data);
+	const result = validator.safeParse(resolvedData);
 
 	if (!result.success) {
 		return c.json({ error: "Validation failed", details: result.error.issues }, 400);
@@ -90,8 +91,9 @@ records.patch("/:recordId", requireRole("owner", "admin", "editor"), async (c) =
 	}
 
 	const body = await c.req.json();
+	const resolvedData = resolveRecordSlugs(body.data ?? {}, dbFields);
 	const validator = buildRecordValidator(dbFields);
-	const result = validator.safeParse(body.data);
+	const result = validator.safeParse(resolvedData);
 
 	if (!result.success) {
 		return c.json({ error: "Validation failed", details: result.error.issues }, 400);

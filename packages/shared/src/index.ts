@@ -76,6 +76,8 @@ export {
 	type UpdateBlockInput,
 	type ReorderBlocksInput,
 	buildRecordValidator,
+	toSlug,
+	resolveRecordSlugs,
 	// Comments
 	type Comment,
 	type CommentWithAuthor,
