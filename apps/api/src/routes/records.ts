@@ -1,5 +1,6 @@
 import { buildRecordValidator, resolveRecordSlugs } from "@kyra/shared";
 import type { Field, LookupSettings } from "@kyra/shared";
+import { evaluateFormulas } from "../lib/formula";
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { type AppEnv, requireRole } from "../lib/auth";
@@ -13,13 +14,16 @@ function enrichRecord(
 	record: { id: string; databaseId: string; data: Record<string, unknown>; createdAt: unknown; updatedAt: unknown },
 	fields: Field[],
 ) {
+	// Evaluate formula fields
+	const evaluatedData = evaluateFormulas(record.data, fields);
+
 	const idToSlug = new Map(fields.map((f) => [f.id, f.slug]));
 	const slugData: Record<string, unknown> = {};
-	for (const [key, value] of Object.entries(record.data)) {
+	for (const [key, value] of Object.entries(evaluatedData)) {
 		const slug = idToSlug.get(key);
 		slugData[slug ?? key] = value;
 	}
-	return { ...record, slugData };
+	return { ...record, data: evaluatedData, slugData };
 }
 
 async function getFields(databaseId: string): Promise<Field[]> {

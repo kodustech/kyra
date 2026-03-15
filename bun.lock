@@ -22,6 +22,7 @@
         "@kyra/shared": "workspace:*",
         "bcryptjs": "^3.0.3",
         "drizzle-orm": "^0.45.1",
+        "expr-eval": "^2.0.2",
         "hono": "^4.6.15",
         "jsonwebtoken": "^9.0.3",
         "postgres": "^3.4.8",
@@ -59,6 +60,7 @@
         "@tiptap/suggestion": "^3.20.1",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
+        "expr-eval": "^2.0.2",
         "lucide-react": "^0.468.0",
         "next-themes": "^0.4.6",
         "radix-ui": "^1.4.3",
@@ -763,6 +765,8 @@
     "esbuild-register": ["esbuild-register@3.6.0", "", { "dependencies": { "debug": "^4.3.4" }, "peerDependencies": { "esbuild": ">=0.12 <1" } }, "sha512-H2/S7Pm8a9CL1uhp9OvjwrBh5Pvx0H8qVOxNu8Wed9Y7qv56MPtq+GGM8RJpq6glYJn9Wspr8uw7l55uyinNeg=="],
 
     "escape-string-regexp": ["escape-string-regexp@4.0.0", "", {}, "sha512-TtpcNJ3XAzx3Gq8sWRzJaVajRs0uVxA2YAkdb1jm2YkPz4G6egUFAyA3n5vtEIZefPk5Wa4UXbKuS5fKkJWdgA=="],
+
+    "expr-eval": ["expr-eval@2.0.2", "", {}, "sha512-4EMSHGOPSwAfBiibw3ndnP0AvjDWLsMvGOvWEZ2F96IGk0bIVdjQisOHxReSkE13mHcfbuCiXw+G4y0zv6N8Eg=="],
 
     "fast-equals": ["fast-equals@5.4.0", "", {}, "sha512-jt2DW/aNFNwke7AUd+Z+e6pz39KO5rzdbbFCg2sGafS4mk13MI7Z8O5z9cADNn5lhGODIgLwug6TZO2ctf7kcw=="],
 

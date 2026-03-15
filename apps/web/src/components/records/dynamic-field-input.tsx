@@ -22,6 +22,12 @@ export function DynamicFieldInput({ field, value, onChange }: DynamicFieldInputP
 	const strVal = value == null ? "" : String(value);
 
 	switch (field.type) {
+		case "formula":
+			return (
+				<div className="flex h-10 w-full items-center rounded-md border border-input bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+					{strVal || "—"}
+				</div>
+			);
 		case "lookup":
 			return <LookupSelect field={field} value={strVal} onChange={onChange} />;
 		case "assignee":

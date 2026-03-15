@@ -6,6 +6,7 @@ import {
 	AlignLeft,
 	Calendar,
 	CheckSquare,
+	FunctionSquare,
 	GripVertical,
 	Hash,
 	Link,
@@ -51,6 +52,7 @@ const FIELD_TYPE_ICONS: Record<FieldType, typeof Type> = {
 	assignee: User,
 	label: Tag,
 	lookup: Search,
+	formula: FunctionSquare,
 };
 
 export function KanbanCard({ record, highlightFields, onClick }: KanbanCardProps) {

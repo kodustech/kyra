@@ -15,6 +15,7 @@
 		"@kyra/shared": "workspace:*",
 		"bcryptjs": "^3.0.3",
 		"drizzle-orm": "^0.45.1",
+		"expr-eval": "^2.0.2",
 		"hono": "^4.6.15",
 		"jsonwebtoken": "^9.0.3",
 		"postgres": "^3.4.8",

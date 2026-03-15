@@ -17,6 +17,7 @@ export const fieldTypeEnum = pgEnum("field_type", [
 	"assignee",
 	"label",
 	"lookup",
+	"formula",
 ]);
 
 export const blockViewTypeEnum = pgEnum("block_view_type", [
@@ -106,6 +107,7 @@ export const fields = pgTable(
 			valueFieldId?: string;
 			filters: { fieldId: string; operator: string; value: string }[];
 		} | null>(),
+		formulaExpression: text("formula_expression"),
 		highlight: boolean().notNull().default(false),
 		position: integer().notNull().default(0),
 		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

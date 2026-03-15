@@ -71,6 +71,13 @@
       "when": 1773599397668,
       "tag": "0009_add_field_slug",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1773602829990,
+      "tag": "0010_add_formula_field",
+      "breakpoints": true
     }
   ]
 }

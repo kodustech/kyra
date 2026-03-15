@@ -44,6 +44,7 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 		options: string[] | null;
 		settings?: { options: KanbanStatusOption[] } | null;
 		lookupSettings?: LookupSettings | null;
+		formulaExpression?: string | null;
 		highlight?: boolean;
 	}) {
 		await create({ ...data, highlight: data.highlight ?? false });
@@ -59,6 +60,7 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 		options: string[] | null;
 		settings?: { options: KanbanStatusOption[] } | null;
 		lookupSettings?: LookupSettings | null;
+		formulaExpression?: string | null;
 		highlight?: boolean;
 	}) {
 		if (!editField) return;
@@ -137,6 +139,7 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 				defaultType="lookup"
 				databases={databases}
 				currentDatabaseId={databaseId}
+				allFields={fields}
 				onSubmit={handleCreate}
 			/>
 
@@ -147,6 +150,7 @@ export function FieldEditor({ databaseId }: FieldEditorProps) {
 				hasKanbanStatus={hasKanbanStatus}
 				databases={databases}
 				currentDatabaseId={databaseId}
+				allFields={fields}
 				onSubmit={handleUpdate}
 			/>
 

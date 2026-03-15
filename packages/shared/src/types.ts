@@ -141,6 +141,7 @@ export const FIELD_TYPES = [
 	"assignee",
 	"label",
 	"lookup",
+	"formula",
 ] as const;
 
 export type FieldType = (typeof FIELD_TYPES)[number];
@@ -196,6 +197,7 @@ export interface Field {
 	options: string[] | null;
 	settings: { options: KanbanStatusOption[] } | null;
 	lookupSettings: LookupSettings | null;
+	formulaExpression: string | null;
 	highlight: boolean;
 	position: number;
 	createdAt: string;
@@ -300,6 +302,7 @@ export const createFieldSchema = z
 		options: z.array(z.string()).nullable().optional(),
 		settings: z.object({ options: z.array(kanbanStatusOptionSchema) }).nullable().optional(),
 		lookupSettings: lookupSettingsSchema.nullable().optional(),
+		formulaExpression: z.string().max(2000).nullable().optional(),
 		highlight: z.boolean().default(false),
 	})
 	.refine(
@@ -319,6 +322,15 @@ export const createFieldSchema = z
 			return true;
 		},
 		{ message: "Lookup fields must have lookup settings configured", path: ["lookupSettings"] },
+	)
+	.refine(
+		(data) => {
+			if (data.type === "formula") {
+				return data.formulaExpression != null && data.formulaExpression.trim().length > 0;
+			}
+			return true;
+		},
+		{ message: "Formula fields must have an expression", path: ["formulaExpression"] },
 	);
 
 export const updateFieldSchema = z
@@ -331,6 +343,7 @@ export const updateFieldSchema = z
 		options: z.array(z.string()).nullable().optional(),
 		settings: z.object({ options: z.array(kanbanStatusOptionSchema) }).nullable().optional(),
 		lookupSettings: lookupSettingsSchema.nullable().optional(),
+		formulaExpression: z.string().max(2000).nullable().optional(),
 		highlight: z.boolean().optional(),
 	})
 	.refine(
@@ -627,6 +640,9 @@ export function buildRecordValidator(fields: Field[]) {
 			case "assignee":
 				fieldSchema = z.string();
 				break;
+			case "formula":
+				// Formula fields are computed server-side, skip validation
+				continue;
 			default:
 				fieldSchema = z.string();
 		}

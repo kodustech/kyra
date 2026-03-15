@@ -20,9 +20,10 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { FIELD_TYPES, LOOKUP_OPERATORS, toSlug, type Database, type Field, type FieldType, type KanbanStatusOption, type LookupFilter, type LookupOperator, type LookupSettings } from "@kyra/shared";
 import { Plus, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { Parser } from "expr-eval";
 
 const STATUS_COLORS = [
 	{ id: "gray", label: "Gray" },
@@ -78,6 +79,7 @@ interface FieldFormDialogProps {
 	defaultType?: FieldType;
 	databases?: Database[];
 	currentDatabaseId?: string;
+	allFields?: Field[];
 	onSubmit: (data: {
 		name: string;
 		slug?: string;
@@ -87,11 +89,12 @@ interface FieldFormDialogProps {
 		options: string[] | null;
 		settings?: { options: KanbanStatusOption[] } | null;
 		lookupSettings?: LookupSettings | null;
+		formulaExpression?: string | null;
 		highlight?: boolean;
 	}) => Promise<void>;
 }
 
-export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, defaultType, databases, currentDatabaseId, onSubmit }: FieldFormDialogProps) {
+export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, defaultType, databases, currentDatabaseId, allFields, onSubmit }: FieldFormDialogProps) {
 	const isEdit = !!field;
 	const [name, setName] = useState("");
 	const [slug, setSlug] = useState("");
@@ -104,6 +107,120 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, de
 	const [kanbanOptions, setKanbanOptions] = useState<KanbanStatusOption[]>(DEFAULT_KANBAN_OPTIONS);
 	const [labelOptions, setLabelOptions] = useState<KanbanStatusOption[]>(DEFAULT_LABEL_OPTIONS);
 	const [highlight, setHighlight] = useState(false);
+	const [formulaExpression, setFormulaExpression] = useState("");
+	const [formulaError, setFormulaError] = useState<string | null>(null);
+	const [showSuggestions, setShowSuggestions] = useState(false);
+	const [suggestionFilter, setSuggestionFilter] = useState("");
+	const [selectedSuggestion, setSelectedSuggestion] = useState(0);
+	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const cursorPosRef = useRef(0);
+
+	// Available field slugs for autocomplete (exclude self)
+	const availableSlugs = useMemo(() => {
+		if (!allFields) return [];
+		return allFields
+			.filter((f) => f.id !== field?.id && f.type !== "formula")
+			.map((f) => ({ slug: f.slug, name: f.name }));
+	}, [allFields, field?.id]);
+
+	const filteredSuggestions = useMemo(() => {
+		if (!suggestionFilter) return availableSlugs;
+		const lower = suggestionFilter.toLowerCase();
+		return availableSlugs.filter(
+			(s) => s.slug.includes(lower) || s.name.toLowerCase().includes(lower),
+		);
+	}, [availableSlugs, suggestionFilter]);
+
+	// Validate formula expression
+	const validateFormula = useCallback(
+		(expr: string) => {
+			if (!expr.trim()) {
+				setFormulaError(null);
+				return;
+			}
+			try {
+				// Replace prop("slug") with dummy variables for parsing
+				const testExpr = expr.replace(/prop\("([^"]+)"\)/g, "1");
+				const parser = new Parser();
+				parser.parse(testExpr);
+				setFormulaError(null);
+			} catch (e) {
+				setFormulaError((e as Error).message);
+			}
+		},
+		[],
+	);
+
+	const handleFormulaChange = useCallback(
+		(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+			const val = e.target.value;
+			const cursor = e.target.selectionStart;
+			cursorPosRef.current = cursor;
+			setFormulaExpression(val);
+			validateFormula(val);
+
+			// Check if we're inside prop(" to show autocomplete
+			const before = val.slice(0, cursor);
+			const propMatch = before.match(/prop\("([^"]*)$/);
+			if (propMatch) {
+				setSuggestionFilter(propMatch[1]);
+				setShowSuggestions(true);
+				setSelectedSuggestion(0);
+			} else {
+				setShowSuggestions(false);
+			}
+		},
+		[validateFormula],
+	);
+
+	const insertSuggestion = useCallback(
+		(slug: string) => {
+			const textarea = textareaRef.current;
+			if (!textarea) return;
+
+			const cursor = cursorPosRef.current;
+			const before = formulaExpression.slice(0, cursor);
+			const after = formulaExpression.slice(cursor);
+
+			// Find where prop(" starts
+			const propStart = before.lastIndexOf('prop("');
+			if (propStart === -1) return;
+
+			const prefix = before.slice(0, propStart);
+			const newVal = `${prefix}prop("${slug}")${after}`;
+			setFormulaExpression(newVal);
+			validateFormula(newVal);
+			setShowSuggestions(false);
+
+			// Restore focus and cursor position
+			const newCursor = prefix.length + `prop("${slug}")`.length;
+			requestAnimationFrame(() => {
+				textarea.focus();
+				textarea.setSelectionRange(newCursor, newCursor);
+			});
+		},
+		[formulaExpression, validateFormula],
+	);
+
+	const handleFormulaKeyDown = useCallback(
+		(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+			if (!showSuggestions || filteredSuggestions.length === 0) return;
+
+			if (e.key === "ArrowDown") {
+				e.preventDefault();
+				setSelectedSuggestion((prev) => Math.min(prev + 1, filteredSuggestions.length - 1));
+			} else if (e.key === "ArrowUp") {
+				e.preventDefault();
+				setSelectedSuggestion((prev) => Math.max(prev - 1, 0));
+			} else if (e.key === "Enter" || e.key === "Tab") {
+				e.preventDefault();
+				insertSuggestion(filteredSuggestions[selectedSuggestion].slug);
+			} else if (e.key === "Escape") {
+				setShowSuggestions(false);
+			}
+		},
+		[showSuggestions, filteredSuggestions, selectedSuggestion, insertSuggestion],
+	);
 
 	// Lookup state
 	const [lookupSourceDbId, setLookupSourceDbId] = useState("");
@@ -139,6 +256,7 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, de
 			setKanbanOptions(field.type === "kanban_status" ? (field.settings?.options ?? DEFAULT_KANBAN_OPTIONS) : DEFAULT_KANBAN_OPTIONS);
 			setLabelOptions(field.type === "label" ? (field.settings?.options ?? DEFAULT_LABEL_OPTIONS) : DEFAULT_LABEL_OPTIONS);
 			setHighlight(field.highlight ?? false);
+			setFormulaExpression(field.formulaExpression ?? "");
 			// Lookup
 			if (field.type === "lookup" && field.lookupSettings) {
 				setLookupSourceDbId(field.lookupSettings.sourceDatabaseId);
@@ -164,6 +282,7 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, de
 			setKanbanOptions(DEFAULT_KANBAN_OPTIONS);
 			setLabelOptions(DEFAULT_LABEL_OPTIONS);
 			setHighlight(false);
+			setFormulaExpression("");
 			setLookupSourceDbId("");
 			setLookupDisplayFieldId("");
 			setLookupValueFieldId("");
@@ -183,6 +302,9 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, de
 		setKanbanOptions(DEFAULT_KANBAN_OPTIONS);
 		setLabelOptions(DEFAULT_LABEL_OPTIONS);
 		setHighlight(false);
+		setFormulaExpression("");
+		setFormulaError(null);
+		setShowSuggestions(false);
 		setLookupSourceDbId("");
 		setLookupDisplayFieldId("");
 		setLookupValueFieldId("");
@@ -193,6 +315,7 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, de
 	async function handleSubmit(e: React.FormEvent, addAnother = false) {
 		e.preventDefault();
 		if (!name.trim()) return;
+		if (type === "formula" && formulaError) return;
 
 		setLoading(true);
 		try {
@@ -232,11 +355,12 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, de
 				name: name.trim(),
 				...(isEdit && slug.trim() ? { slug: slug.trim() } : {}),
 				type,
-				required: type === "kanban_status" || type === "label" || type === "assignee" || type === "lookup" ? false : required,
-				mask: type === "kanban_status" || type === "label" || type === "assignee" || type === "lookup" ? null : mask.trim() || null,
+				required: type === "kanban_status" || type === "label" || type === "assignee" || type === "lookup" || type === "formula" ? false : required,
+				mask: type === "kanban_status" || type === "label" || type === "assignee" || type === "lookup" || type === "formula" ? null : mask.trim() || null,
 				options,
 				settings: finalSettings,
 				lookupSettings,
+				formulaExpression: type === "formula" ? formulaExpression.trim() || null : null,
 				highlight,
 			});
 
@@ -620,7 +744,56 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, de
 								)}
 							</div>
 						)}
-					{type !== "kanban_status" && type !== "label" && type !== "assignee" && type !== "lookup" && (
+					{type === "formula" && (
+							<div className="space-y-2">
+								<Label htmlFor="field-formula">Formula Expression</Label>
+								<div className="relative">
+									<textarea
+										ref={textareaRef}
+										id="field-formula"
+										className={`flex min-h-[80px] w-full rounded-lg border bg-transparent px-3 py-2 text-sm font-mono shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
+											formulaError
+												? "border-destructive focus-visible:border-destructive focus-visible:ring-destructive/20"
+												: "border-input focus-visible:border-ring"
+										}`}
+										value={formulaExpression}
+										onChange={handleFormulaChange}
+										onKeyDown={handleFormulaKeyDown}
+										onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+										placeholder={'e.g. prop("price") * prop("quantity")'}
+									/>
+									{showSuggestions && filteredSuggestions.length > 0 && (
+										<div className="absolute z-50 mt-1 max-h-40 w-full overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">
+											{filteredSuggestions.map((s, i) => (
+												<button
+													key={s.slug}
+													type="button"
+													className={`flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-sm ${
+														i === selectedSuggestion ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
+													}`}
+													onMouseDown={(e) => {
+														e.preventDefault();
+														insertSuggestion(s.slug);
+													}}
+													onMouseEnter={() => setSelectedSuggestion(i)}
+												>
+													<code className="font-mono text-xs">{s.slug}</code>
+													<span className="text-xs text-muted-foreground">{s.name}</span>
+												</button>
+											))}
+										</div>
+									)}
+								</div>
+								{formulaError && (
+									<p className="text-xs text-destructive">{formulaError}</p>
+								)}
+								<p className="text-xs text-muted-foreground">
+									Use <code className="rounded bg-muted px-1">prop("slug")</code> to reference fields.
+									Supports math (+, -, *, /), comparisons, if(), concat(), round(), lower(), upper(), contains(), and more.
+								</p>
+							</div>
+						)}
+					{type !== "kanban_status" && type !== "label" && type !== "assignee" && type !== "lookup" && type !== "formula" && (
 							<>
 								<div className="space-y-2">
 									<Label htmlFor="field-mask">Mask (regex, optional)</Label>
@@ -652,13 +825,13 @@ export function FieldFormDialog({ field, open, onOpenChange, hasKanbanStatus, de
 							<Button
 								type="button"
 								variant="outline"
-								disabled={!name.trim() || loading}
+								disabled={!name.trim() || loading || (type === "formula" && !!formulaError)}
 								onClick={(e) => handleSubmit(e, true)}
 							>
 								Add & Add Another
 							</Button>
 						)}
-						<Button type="submit" disabled={!name.trim() || loading}>
+						<Button type="submit" disabled={!name.trim() || loading || (type === "formula" && !!formulaError)}>
 							{loading ? "Saving..." : isEdit ? "Save" : "Add Field"}
 						</Button>
 					</DialogFooter>
