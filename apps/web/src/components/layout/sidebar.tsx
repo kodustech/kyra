@@ -15,7 +15,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Database as DatabaseType, Page as PageType, UserRole } from "@kyra/shared";
-import { canEditContent, canManageDatabases } from "@kyra/shared";
+import { canEditContent, canManageAdministration, canManageDatabases } from "@kyra/shared";
 import { DeletePageDialog } from "@/components/pages/delete-page-dialog";
 import { EditPageDialog } from "@/components/pages/edit-page-dialog";
 import { PageIcon } from "@/components/ui/icon-picker";
@@ -28,7 +28,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { usePages } from "@/hooks/use-pages";
-import { ChevronDown, Database, GripVertical, MoreHorizontal, Pin, PinOff, Plus, Settings, Trash2 } from "lucide-react";
+import {
+	Building2,
+	ChevronDown,
+	Database,
+	FileText,
+	GripVertical,
+	MoreHorizontal,
+	Pin,
+	PinOff,
+	Plus,
+	Receipt,
+	Settings,
+	Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router";
 
@@ -59,9 +72,17 @@ export function Sidebar({
 	const { update } = usePages();
 	const [pagesOpen, setPagesOpen] = useState(true);
 	const [dbOpen, setDbOpen] = useState(true);
+	const [adminOpen, setAdminOpen] = useState(true);
 	const [editingPage, setEditingPage] = useState<PageType | null>(null);
 	const [deletingPage, setDeletingPage] = useState<PageType | null>(null);
 	const isEditor = !userRole || canEditContent(userRole);
+	const canSeeAdmin = !userRole || canManageAdministration(userRole);
+
+	const adminItems = [
+		{ to: "/administrative/customers", label: "Customers", icon: <Building2 className="h-4 w-4 shrink-0" /> },
+		{ to: "/administrative/invoices", label: "Invoices", icon: <FileText className="h-4 w-4 shrink-0" /> },
+		{ to: "/administrative/billings", label: "Billings", icon: <Receipt className="h-4 w-4 shrink-0" /> },
+	];
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -106,6 +127,39 @@ export function Sidebar({
 				</button>
 			</div>
 
+			{/* Administrative section — only for owner/admin */}
+			{canSeeAdmin && (
+				<>
+					<SectionHeader
+						label="Administrative"
+						open={adminOpen}
+						onToggle={() => setAdminOpen((v) => !v)}
+						showAdd={false}
+					/>
+					{adminOpen && (
+						<nav className="overflow-y-auto p-2">
+							{adminItems.map((item) => {
+								const active = location.pathname.startsWith(item.to);
+								return (
+									<Link
+										key={item.to}
+										to={item.to}
+										className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+											active
+												? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+												: "text-sidebar-foreground hover:bg-sidebar-accent"
+										}`}
+									>
+										{item.icon}
+										<span className="truncate">{item.label}</span>
+									</Link>
+								);
+							})}
+						</nav>
+					)}
+				</>
+			)}
+
 			{/* Pages section */}
 			<SectionHeader
 				label="Pages"
@@ -114,6 +168,7 @@ export function Sidebar({
 				onAdd={onCreatePage}
 				addTitle="New page"
 				showAdd={!userRole || canEditContent(userRole)}
+				borderTop={canSeeAdmin}
 			/>
 			{pagesOpen && (
 				<nav className="overflow-y-auto p-2">
@@ -218,8 +273,8 @@ function SectionHeader({
 	label: string;
 	open: boolean;
 	onToggle: () => void;
-	onAdd: () => void;
-	addTitle: string;
+	onAdd?: () => void;
+	addTitle?: string;
 	borderTop?: boolean;
 	showAdd?: boolean;
 }) {
@@ -235,7 +290,7 @@ function SectionHeader({
 				<ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "" : "-rotate-90"}`} />
 				{label}
 			</button>
-			{showAdd && (
+			{showAdd && onAdd && (
 				<button
 					type="button"
 					onClick={(e) => {

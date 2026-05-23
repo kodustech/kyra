@@ -548,6 +548,147 @@ export const updateWebhookSchema = z.object({
 export type CreateWebhookInput = z.infer<typeof createWebhookSchema>;
 export type UpdateWebhookInput = z.infer<typeof updateWebhookSchema>;
 
+// ─── Customers ─────────────────────────────────────────────────────────────────
+
+export interface Customer {
+	id: string;
+	cnpj: string | null;
+	stateRegistration: string | null;
+	companyName: string;
+	tradeName: string | null;
+	address: string | null;
+	number: string | null;
+	district: string | null;
+	city: string | null;
+	state: string | null;
+	zipCode: string | null;
+	purchasedLicenses: number | null;
+	totalDevs: number | null;
+	dueDay: number | null;
+	stripeCustomerId: string | null;
+	stripeSubscriptionId: string | null;
+	invoiceEmails: string[] | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface CustomerContact {
+	id: string;
+	customerId: string;
+	name: string | null;
+	phone: string | null;
+	email: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface CustomerWithContacts extends Customer {
+	contacts: CustomerContact[];
+}
+
+const optionalEmail = z
+	.string()
+	.email("Invalid email")
+	.optional()
+	.or(z.literal(""))
+	.transform((v) => (v ? v : undefined));
+
+const contactInputSchema = z.object({
+	name: z.string().max(255).optional(),
+	phone: z.string().max(50).optional(),
+	email: optionalEmail,
+});
+
+export const createCustomerSchema = z.object({
+	cnpj: z.string().max(20).optional(),
+	stateRegistration: z.string().max(50).optional(),
+	companyName: z.string().min(2, "Company name must be at least 2 characters").max(255),
+	tradeName: z.string().max(255).optional(),
+	address: z.string().max(255).optional(),
+	number: z.string().max(20).optional(),
+	district: z.string().max(120).optional(),
+	city: z.string().max(120).optional(),
+	state: z.string().max(60).optional(),
+	zipCode: z.string().max(20).optional(),
+	purchasedLicenses: z.coerce.number().int().nonnegative().optional(),
+	totalDevs: z.coerce.number().int().nonnegative().optional(),
+	dueDay: z.coerce.number().int().min(1).max(31).optional(),
+	stripeCustomerId: z.string().max(255).optional(),
+	stripeSubscriptionId: z.string().max(255).optional(),
+	invoiceEmails: z.array(z.string().email("Invalid email")).optional(),
+	contacts: z.array(contactInputSchema).optional(),
+});
+
+export const updateCustomerSchema = createCustomerSchema.partial();
+
+export const createContactSchema = contactInputSchema;
+
+export type CreateCustomerInput = z.infer<typeof createCustomerSchema>;
+export type UpdateCustomerInput = z.infer<typeof updateCustomerSchema>;
+export type CreateContactInput = z.infer<typeof createContactSchema>;
+
+// ─── Invoices ─────────────────────────────────────────────────────────────────
+
+export const INVOICE_STATUSES = ["pending", "issued", "sent"] as const;
+export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
+
+export interface Invoice {
+	id: string;
+	customerId: string;
+	stripeInvoiceId: string | null;
+	status: InvoiceStatus;
+	amount: string | null;
+	invoiceDate: string | null;
+	description: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface InvoiceWithCustomer extends Invoice {
+	customerName: string | null;
+}
+
+export const updateInvoiceSchema = z.object({
+	status: z.enum(INVOICE_STATUSES).optional(),
+	description: z.string().max(2000).nullable().optional(),
+});
+
+export const syncInvoicesSchema = z.object({
+	startDate: z.string().refine((v) => !Number.isNaN(Date.parse(v)), {
+		message: "Invalid start date",
+	}),
+	endDate: z.string().refine((v) => !Number.isNaN(Date.parse(v)), {
+		message: "Invalid end date",
+	}),
+});
+
+export type UpdateInvoiceInput = z.infer<typeof updateInvoiceSchema>;
+export type SyncInvoicesInput = z.infer<typeof syncInvoicesSchema>;
+
+// ─── Billings ─────────────────────────────────────────────────────────────────
+
+export interface Billing {
+	id: string;
+	customerId: string;
+	stripeInvoiceId: string | null;
+	paymentDate: string | null;
+	amountBrl: string | null;
+	amountUsd: string | null;
+	exchangeRate: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface BillingWithCustomer extends Billing {
+	customerName: string | null;
+}
+
+// ─── Administrative Permission Helper ──────────────────────────────────────────
+
+export function canManageAdministration(role: UserRole): boolean {
+	return role === "owner" || role === "admin";
+}
+
 // ─── Slug Helpers ───────────────────────────────────────────────────────────────
 
 export function toSlug(name: string): string {

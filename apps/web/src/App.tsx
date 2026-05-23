@@ -2,8 +2,13 @@ import { ProtectedRoute } from "@/components/auth/protected-route";
 import { RootLayout } from "@/components/layout/root-layout";
 import { Toaster } from "@/components/ui/sonner";
 import { AcceptInvitePage } from "@/pages/accept-invite";
+import { BillingsPage } from "@/pages/billings";
+import { CustomersPage } from "@/pages/customers";
+import { EditCustomerPage } from "@/pages/customers/edit";
+import { NewCustomerPage } from "@/pages/customers/new";
 import { Dashboard } from "@/pages/dashboard";
 import { DatabaseDetail } from "@/pages/database-detail";
+import { InvoicesPage } from "@/pages/invoices";
 import { LoginPage } from "@/pages/login";
 import { NotFound } from "@/pages/not-found";
 import { PageDetail } from "@/pages/page-detail";
@@ -49,6 +54,11 @@ export function App() {
 								<Route path="/settings/users" element={<UserManagement />} />
 								<Route path="/settings/api-keys" element={<ApiKeysPage />} />
 								<Route path="/settings/webhooks" element={<WebhooksPage />} />
+								<Route path="/administrative/customers" element={<CustomersPage />} />
+								<Route path="/administrative/customers/new" element={<NewCustomerPage />} />
+								<Route path="/administrative/customers/:id/edit" element={<EditCustomerPage />} />
+								<Route path="/administrative/invoices" element={<InvoicesPage />} />
+								<Route path="/administrative/billings" element={<BillingsPage />} />
 								<Route path="*" element={<NotFound />} />
 							</Route>
 						</Route>

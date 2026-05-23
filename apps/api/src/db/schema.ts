@@ -1,4 +1,4 @@
-import { boolean, index, jsonb, pgEnum, pgTable, text, integer, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, jsonb, numeric, pgEnum, pgTable, text, integer, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 // ─── Enums ──────────────────────────────────────────────────────────────────────
@@ -34,6 +34,8 @@ export const userRoleEnum = pgEnum("user_role", [
 	"viewer",
 	"pending",
 ]);
+
+export const invoiceStatusEnum = pgEnum("invoice_status", ["pending", "issued", "sent"]);
 
 // ─── Users ──────────────────────────────────────────────────────────────────────
 
@@ -228,6 +230,104 @@ export const webhooks = pgTable(
 	},
 	(t) => [
 		index("idx_webhooks_active").on(t.active),
+	],
+);
+
+// ─── Customers ─────────────────────────────────────────────────────────────────
+
+export const customers = pgTable(
+	"customers",
+	{
+		id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+		cnpj: text(),
+		stateRegistration: text("state_registration"),
+		companyName: text("company_name").notNull(),
+		tradeName: text("trade_name"),
+		address: text(),
+		number: text(),
+		district: text(),
+		city: text(),
+		state: text(),
+		zipCode: text("zip_code"),
+		purchasedLicenses: integer("purchased_licenses"),
+		totalDevs: integer("total_devs"),
+		dueDay: integer("due_day"),
+		stripeCustomerId: text("stripe_customer_id"),
+		stripeSubscriptionId: text("stripe_subscription_id"),
+		invoiceEmails: jsonb("invoice_emails").$type<string[] | null>(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		index("idx_customers_company_name").on(t.companyName),
+		index("idx_customers_stripe_customer_id").on(t.stripeCustomerId),
+	],
+);
+
+// ─── Customer Contacts ────────────────────────────────────────────────────────
+
+export const customerContacts = pgTable(
+	"customer_contacts",
+	{
+		id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+		customerId: uuid("customer_id")
+			.notNull()
+			.references(() => customers.id, { onDelete: "cascade" }),
+		name: text(),
+		phone: text(),
+		email: text(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		index("idx_customer_contacts_customer_id").on(t.customerId),
+	],
+);
+
+// ─── Invoices ─────────────────────────────────────────────────────────────────
+
+export const invoices = pgTable(
+	"invoices",
+	{
+		id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+		customerId: uuid("customer_id")
+			.notNull()
+			.references(() => customers.id, { onDelete: "cascade" }),
+		stripeInvoiceId: text("stripe_invoice_id").unique(),
+		status: invoiceStatusEnum().notNull().default("pending"),
+		amount: numeric({ precision: 12, scale: 2 }),
+		invoiceDate: timestamp("invoice_date", { withTimezone: true }),
+		description: text(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		index("idx_invoices_customer_id").on(t.customerId),
+		index("idx_invoices_status").on(t.status),
+		index("idx_invoices_invoice_date").on(t.invoiceDate),
+	],
+);
+
+// ─── Billings ─────────────────────────────────────────────────────────────────
+
+export const billings = pgTable(
+	"billings",
+	{
+		id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+		customerId: uuid("customer_id")
+			.notNull()
+			.references(() => customers.id, { onDelete: "cascade" }),
+		stripeInvoiceId: text("stripe_invoice_id").unique(),
+		paymentDate: timestamp("payment_date", { withTimezone: true }),
+		amountBrl: numeric("amount_brl", { precision: 12, scale: 2 }),
+		amountUsd: numeric("amount_usd", { precision: 12, scale: 2 }),
+		exchangeRate: numeric("exchange_rate", { precision: 12, scale: 4 }),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		index("idx_billings_customer_id").on(t.customerId),
+		index("idx_billings_payment_date").on(t.paymentDate),
 	],
 );
 

@@ -5,8 +5,8 @@ import { useDatabases } from "@/hooks/use-databases";
 import { usePages } from "@/hooks/use-pages";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/auth-provider";
-import { canEditContent, canManageDatabases } from "@kyra/shared";
-import { Database, PinOff, Plus } from "lucide-react";
+import { canEditContent, canManageAdministration, canManageDatabases } from "@kyra/shared";
+import { Building2, Database, FileText, PinOff, Plus, Receipt } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 import { Header } from "./header";
@@ -68,6 +68,13 @@ export function RootLayout() {
 
 	const canAddPages = !user?.role || canEditContent(user.role);
 	const canSeeDbSection = !user?.role || canManageDatabases(user.role);
+	const canSeeAdmin = !user?.role || canManageAdministration(user.role);
+
+	const adminItems = [
+		{ to: "/administrative/customers", label: "Customers", icon: Building2 },
+		{ to: "/administrative/invoices", label: "Invoices", icon: FileText },
+		{ to: "/administrative/billings", label: "Billings", icon: Receipt },
+	];
 
 	return (
 		<div className="flex h-screen overflow-hidden">
@@ -90,6 +97,31 @@ export function RootLayout() {
 						>
 							<PinOff className="h-4 w-4" />
 						</button>
+
+						{/* Administrative icons */}
+						{canSeeAdmin && (
+							<>
+								{adminItems.map((item) => {
+									const Icon = item.icon;
+									return (
+										<Link
+											key={item.to}
+											to={item.to}
+											title={item.label}
+											className={cn(
+												"flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+												location.pathname.startsWith(item.to)
+													? "bg-sidebar-accent text-sidebar-accent-foreground"
+													: "text-sidebar-foreground hover:bg-sidebar-accent",
+											)}
+										>
+											<Icon className="h-4 w-4" />
+										</Link>
+									);
+								})}
+								<div className="my-1 h-px w-6 bg-sidebar-border" />
+							</>
+						)}
 
 						{/* Page icons */}
 						{pages.map((page) => (
