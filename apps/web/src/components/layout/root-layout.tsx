@@ -6,7 +6,7 @@ import { usePages } from "@/hooks/use-pages";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/auth-provider";
 import { canEditContent, canManageAdministration, canManageDatabases } from "@kyra/shared";
-import { Building2, Database, FileText, PinOff, Plus, Receipt } from "lucide-react";
+import { Building2, Cog, Database, FileText, PinOff, Plus, Receipt } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 import { Header } from "./header";
@@ -74,6 +74,7 @@ export function RootLayout() {
 		{ to: "/administrative/customers", label: "Customers", icon: Building2 },
 		{ to: "/administrative/invoices", label: "Invoices", icon: FileText },
 		{ to: "/administrative/billings", label: "Billings", icon: Receipt },
+		{ to: "/administrative/settings", label: "Settings", icon: Cog },
 	];
 
 	return (

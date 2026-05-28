@@ -5,7 +5,7 @@ services:
       target: api
     env_file: .env
     ports:
-      - "3007:3000"
+      - "3007:3100"
     restart: unless-stopped
 
   web:

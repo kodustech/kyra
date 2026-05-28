@@ -109,15 +109,25 @@ export {
 	// Invoices
 	INVOICE_STATUSES,
 	type InvoiceStatus,
+	NFSE_STATUSES,
+	type NfseStatus,
 	type Invoice,
 	type InvoiceWithCustomer,
 	updateInvoiceSchema,
 	syncInvoicesSchema,
+	issueNfseSchema,
 	type UpdateInvoiceInput,
 	type SyncInvoicesInput,
+	type IssueNfseInput,
 	// Billings
 	type Billing,
 	type BillingWithCustomer,
+	// Company Settings
+	FOCUS_NFE_ENVIRONMENTS,
+	type FocusNfeEnvironment,
+	type CompanySettings,
+	upsertCompanySettingsSchema,
+	type UpsertCompanySettingsInput,
 	// Administrative
 	canManageAdministration,
 } from "./types";

@@ -5,10 +5,12 @@ import { auth } from "./routes/auth";
 import { billingsRoutes } from "./routes/billings";
 import { blocks } from "./routes/blocks";
 import { commentsRoutes } from "./routes/comments";
+import { companySettingsRoutes } from "./routes/company-settings";
 import { customerContactsRoutes } from "./routes/customer-contacts";
 import { customersRoutes } from "./routes/customers";
 import { databases } from "./routes/databases";
 import { fields } from "./routes/fields";
+import { focusNfeWebhook } from "./routes/focus-nfe-webhook";
 import { health } from "./routes/health";
 import { invoicesRoutes } from "./routes/invoices";
 import { apiKeysRoutes } from "./routes/api-keys";
@@ -27,6 +29,7 @@ app.use("/*", cors());
 app.route("/health", health);
 app.route("/auth", auth);
 app.route("/p", publicRoutes);
+app.route("/webhooks/focus-nfe", focusNfeWebhook);
 
 // Protected routes — require auth
 app.use("/databases/*", authMiddleware);
@@ -38,6 +41,7 @@ app.use("/webhooks/*", authMiddleware);
 app.use("/customers/*", authMiddleware);
 app.use("/invoices/*", authMiddleware);
 app.use("/billings/*", authMiddleware);
+app.use("/company-settings/*", authMiddleware);
 
 app.route("/uploads", uploads);
 app.route("/databases", databases);
@@ -53,3 +57,4 @@ app.route("/customers", customersRoutes);
 app.route("/customers/:customerId/contacts", customerContactsRoutes);
 app.route("/invoices", invoicesRoutes);
 app.route("/billings", billingsRoutes);
+app.route("/company-settings", companySettingsRoutes);

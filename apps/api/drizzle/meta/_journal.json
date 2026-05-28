@@ -85,6 +85,13 @@
       "when": 1779569275319,
       "tag": "0011_add_administrative_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1779626995583,
+      "tag": "0012_add_nfse_fields_and_company_settings",
+      "breakpoints": true
     }
   ]
 }

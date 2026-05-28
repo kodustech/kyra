@@ -1,9 +1,28 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
-import type { InvoiceStatus, InvoiceWithCustomer } from "@kyra/shared";
-import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
+import type { InvoiceStatus, InvoiceWithCustomer, NfseStatus } from "@kyra/shared";
+import {
+	ArrowLeft,
+	ArrowRight,
+	Download,
+	FileText,
+	Loader2,
+	RefreshCw,
+	Send,
+	XCircle,
+} from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import { toast } from "sonner";
 import { SyncModal } from "./sync-modal";
 
@@ -17,6 +36,22 @@ const STATUS_LABELS: Record<InvoiceStatus, string> = {
 	pending: "Pending",
 	issued: "Issued",
 	sent: "Sent",
+};
+
+const NFSE_LABELS: Record<NfseStatus, string> = {
+	not_issued: "Not issued",
+	processing: "Processing",
+	authorized: "Authorized",
+	error: "Error",
+	cancelled: "Cancelled",
+};
+
+const NFSE_VARIANTS: Record<NfseStatus, "outline" | "secondary" | "default" | "destructive"> = {
+	not_issued: "outline",
+	processing: "secondary",
+	authorized: "default",
+	error: "destructive",
+	cancelled: "outline",
 };
 
 function nextStatus(current: InvoiceStatus): InvoiceStatus | null {
@@ -35,6 +70,10 @@ export function InvoicesPage() {
 	const [invoices, setInvoices] = useState<InvoiceWithCustomer[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [syncOpen, setSyncOpen] = useState(false);
+	const [issuingId, setIssuingId] = useState<string | null>(null);
+	const [cancelTarget, setCancelTarget] = useState<InvoiceWithCustomer | null>(null);
+	const [justification, setJustification] = useState("");
+	const [cancelling, setCancelling] = useState(false);
 
 	function loadInvoices() {
 		setLoading(true);
@@ -74,6 +113,49 @@ export function InvoicesPage() {
 		}
 	}
 
+	async function handleIssue(invoiceId: string) {
+		setIssuingId(invoiceId);
+		try {
+			const updated = await api.post<InvoiceWithCustomer>(
+				`/invoices/${invoiceId}/issue-nfse`,
+				{},
+			);
+			setInvoices((prev) => prev.map((inv) => (inv.id === invoiceId ? { ...inv, ...updated } : inv)));
+			if (updated.nfseStatus === "authorized") {
+				toast.success(`NFS-e ${updated.nfseNumber ?? ""} authorized`);
+			} else if (updated.nfseStatus === "processing") {
+				toast.info("NFS-e sent — waiting for authorization");
+			} else if (updated.nfseStatus === "error") {
+				toast.error(updated.nfseError || "NFS-e error");
+			}
+		} catch (err) {
+			toast.error((err as Error).message);
+		} finally {
+			setIssuingId(null);
+		}
+	}
+
+	async function handleCancelConfirm() {
+		if (!cancelTarget) return;
+		setCancelling(true);
+		try {
+			const updated = await api.post<InvoiceWithCustomer>(
+				`/invoices/${cancelTarget.id}/cancel-nfse`,
+				{ justification },
+			);
+			setInvoices((prev) =>
+				prev.map((inv) => (inv.id === cancelTarget.id ? { ...inv, ...updated } : inv)),
+			);
+			toast.success("NFS-e cancelled");
+			setCancelTarget(null);
+			setJustification("");
+		} catch (err) {
+			toast.error((err as Error).message);
+		} finally {
+			setCancelling(false);
+		}
+	}
+
 	function formatDate(date: string | null) {
 		if (!date) return "—";
 		return new Date(date).toLocaleDateString();
@@ -89,9 +171,14 @@ export function InvoicesPage() {
 		<div>
 			<div className="mb-6 flex items-center justify-between">
 				<h2 className="text-2xl font-semibold">Invoices</h2>
-				<Button onClick={() => setSyncOpen(true)}>
-					<RefreshCw className="mr-2 h-4 w-4" /> Sync Stripe
-				</Button>
+				<div className="flex items-center gap-2">
+					<Button variant="outline" asChild>
+						<Link to="/administrative/settings">Settings</Link>
+					</Button>
+					<Button onClick={() => setSyncOpen(true)}>
+						<RefreshCw className="mr-2 h-4 w-4" /> Sync Stripe
+					</Button>
+				</div>
 			</div>
 
 			{loading ? (
@@ -115,6 +202,10 @@ export function InvoicesPage() {
 										columnInvoices.map((inv) => {
 											const np = nextStatus(inv.status);
 											const pp = prevStatus(inv.status);
+											const issuing = issuingId === inv.id;
+											const canIssue =
+												inv.nfseStatus === "not_issued" || inv.nfseStatus === "error";
+											const canCancel = inv.nfseStatus === "authorized";
 											return (
 												<div
 													key={inv.id}
@@ -128,16 +219,76 @@ export function InvoicesPage() {
 															{formatCurrency(inv.amount)}
 														</span>
 													</div>
-													<p className="text-xs text-muted-foreground">
-														{formatDate(inv.invoiceDate)}
-													</p>
+													<div className="flex items-center justify-between text-xs text-muted-foreground">
+														<span>{formatDate(inv.invoiceDate)}</span>
+														<Badge variant={NFSE_VARIANTS[inv.nfseStatus]} className="text-[10px]">
+															NFS-e: {NFSE_LABELS[inv.nfseStatus]}
+															{inv.nfseNumber ? ` #${inv.nfseNumber}` : ""}
+														</Badge>
+													</div>
 													{inv.description && (
 														<p className="text-xs text-muted-foreground">{inv.description}</p>
 													)}
+													{inv.nfseError && (
+														<p className="text-xs text-destructive">{inv.nfseError}</p>
+													)}
+
+													<div className="flex flex-wrap gap-1 pt-1">
+														{canIssue && (
+															<Button
+																size="sm"
+																className="flex-1 text-xs"
+																onClick={() => handleIssue(inv.id)}
+																disabled={issuing}
+															>
+																{issuing ? (
+																	<Loader2 className="mr-1 h-3 w-3 animate-spin" />
+																) : (
+																	<Send className="mr-1 h-3 w-3" />
+																)}
+																Issue NFS-e
+															</Button>
+														)}
+														{inv.nfsePdfUrl && (
+															<Button
+																variant="outline"
+																size="sm"
+																className="text-xs"
+																asChild
+															>
+																<a href={inv.nfsePdfUrl} target="_blank" rel="noopener noreferrer">
+																	<FileText className="mr-1 h-3 w-3" /> PDF
+																</a>
+															</Button>
+														)}
+														{inv.nfseXmlUrl && (
+															<Button
+																variant="outline"
+																size="sm"
+																className="text-xs"
+																asChild
+															>
+																<a href={inv.nfseXmlUrl} target="_blank" rel="noopener noreferrer">
+																	<Download className="mr-1 h-3 w-3" /> XML
+																</a>
+															</Button>
+														)}
+														{canCancel && (
+															<Button
+																variant="outline"
+																size="sm"
+																className="text-xs text-destructive"
+																onClick={() => setCancelTarget(inv)}
+															>
+																<XCircle className="mr-1 h-3 w-3" /> Cancel
+															</Button>
+														)}
+													</div>
+
 													<div className="flex gap-2 pt-1">
 														{pp && (
 															<Button
-																variant="outline"
+																variant="ghost"
 																size="sm"
 																className="flex-1 text-xs"
 																onClick={() => handleMoveStatus(inv.id, pp)}
@@ -147,7 +298,7 @@ export function InvoicesPage() {
 														)}
 														{np && (
 															<Button
-																variant="outline"
+																variant="ghost"
 																size="sm"
 																className="flex-1 text-xs"
 																onClick={() => handleMoveStatus(inv.id, np)}
@@ -168,6 +319,54 @@ export function InvoicesPage() {
 			)}
 
 			<SyncModal open={syncOpen} onOpenChange={setSyncOpen} onSync={handleSync} />
+
+			<Dialog
+				open={!!cancelTarget}
+				onOpenChange={(open) => {
+					if (!open) {
+						setCancelTarget(null);
+						setJustification("");
+					}
+				}}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Cancel NFS-e</DialogTitle>
+						<DialogDescription>
+							Cancellation requires a justification with at least 15 characters. This action can not be undone.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-2">
+						<Textarea
+							rows={4}
+							placeholder="Justification..."
+							value={justification}
+							onChange={(e) => setJustification(e.target.value)}
+						/>
+						<p className="text-xs text-muted-foreground">
+							{justification.length} characters (min 15)
+						</p>
+					</div>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={() => {
+								setCancelTarget(null);
+								setJustification("");
+							}}
+						>
+							Back
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={handleCancelConfirm}
+							disabled={cancelling || justification.trim().length < 15}
+						>
+							{cancelling ? "Cancelling..." : "Cancel NFS-e"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

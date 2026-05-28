@@ -31,6 +31,7 @@ import { usePages } from "@/hooks/use-pages";
 import {
 	Building2,
 	ChevronDown,
+	Cog,
 	Database,
 	FileText,
 	GripVertical,
@@ -82,6 +83,7 @@ export function Sidebar({
 		{ to: "/administrative/customers", label: "Customers", icon: <Building2 className="h-4 w-4 shrink-0" /> },
 		{ to: "/administrative/invoices", label: "Invoices", icon: <FileText className="h-4 w-4 shrink-0" /> },
 		{ to: "/administrative/billings", label: "Billings", icon: <Receipt className="h-4 w-4 shrink-0" /> },
+		{ to: "/administrative/settings", label: "Settings", icon: <Cog className="h-4 w-4 shrink-0" /> },
 	];
 
 	const sensors = useSensors(

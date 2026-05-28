@@ -37,6 +37,16 @@ export const userRoleEnum = pgEnum("user_role", [
 
 export const invoiceStatusEnum = pgEnum("invoice_status", ["pending", "issued", "sent"]);
 
+export const nfseStatusEnum = pgEnum("nfse_status", [
+	"not_issued",
+	"processing",
+	"authorized",
+	"error",
+	"cancelled",
+]);
+
+export const focusNfeEnvironmentEnum = pgEnum("focus_nfe_environment", ["sandbox", "production"]);
+
 // ─── Users ──────────────────────────────────────────────────────────────────────
 
 export const users = pgTable(
@@ -298,6 +308,13 @@ export const invoices = pgTable(
 		amount: numeric({ precision: 12, scale: 2 }),
 		invoiceDate: timestamp("invoice_date", { withTimezone: true }),
 		description: text(),
+		nfseStatus: nfseStatusEnum("nfse_status").notNull().default("not_issued"),
+		nfseReference: text("nfse_reference").unique(),
+		nfseNumber: text("nfse_number"),
+		nfsePdfUrl: text("nfse_pdf_url"),
+		nfseXmlUrl: text("nfse_xml_url"),
+		nfseError: text("nfse_error"),
+		nfseIssuedAt: timestamp("nfse_issued_at", { withTimezone: true }),
 		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 	},
@@ -305,8 +322,36 @@ export const invoices = pgTable(
 		index("idx_invoices_customer_id").on(t.customerId),
 		index("idx_invoices_status").on(t.status),
 		index("idx_invoices_invoice_date").on(t.invoiceDate),
+		index("idx_invoices_nfse_status").on(t.nfseStatus),
 	],
 );
+
+// ─── Company Settings (singleton) ─────────────────────────────────────────────
+
+export const companySettings = pgTable("company_settings", {
+	id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+	cnpj: text().notNull(),
+	companyName: text("company_name").notNull(),
+	tradeName: text("trade_name"),
+	municipalRegistration: text("municipal_registration"),
+	stateRegistration: text("state_registration"),
+	address: text(),
+	number: text(),
+	complement: text(),
+	district: text(),
+	city: text(),
+	state: text(),
+	zipCode: text("zip_code"),
+	cityCode: text("city_code"),
+	serviceItemCode: text("service_item_code"),
+	municipalServiceCode: text("municipal_service_code"),
+	issAliquot: numeric("iss_aliquot", { precision: 5, scale: 2 }),
+	defaultDiscrimination: text("default_discrimination"),
+	focusNfeToken: text("focus_nfe_token"),
+	focusNfeEnvironment: focusNfeEnvironmentEnum("focus_nfe_environment").notNull().default("sandbox"),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 // ─── Billings ─────────────────────────────────────────────────────────────────
 

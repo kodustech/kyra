@@ -632,6 +632,15 @@ export type CreateContactInput = z.infer<typeof createContactSchema>;
 export const INVOICE_STATUSES = ["pending", "issued", "sent"] as const;
 export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
 
+export const NFSE_STATUSES = [
+	"not_issued",
+	"processing",
+	"authorized",
+	"error",
+	"cancelled",
+] as const;
+export type NfseStatus = (typeof NFSE_STATUSES)[number];
+
 export interface Invoice {
 	id: string;
 	customerId: string;
@@ -640,6 +649,13 @@ export interface Invoice {
 	amount: string | null;
 	invoiceDate: string | null;
 	description: string | null;
+	nfseStatus: NfseStatus;
+	nfseReference: string | null;
+	nfseNumber: string | null;
+	nfsePdfUrl: string | null;
+	nfseXmlUrl: string | null;
+	nfseError: string | null;
+	nfseIssuedAt: string | null;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -652,6 +668,12 @@ export const updateInvoiceSchema = z.object({
 	status: z.enum(INVOICE_STATUSES).optional(),
 	description: z.string().max(2000).nullable().optional(),
 });
+
+export const issueNfseSchema = z.object({
+	discrimination: z.string().min(1, "Discrimination is required").max(2000).optional(),
+});
+
+export type IssueNfseInput = z.infer<typeof issueNfseSchema>;
 
 export const syncInvoicesSchema = z.object({
 	startDate: z.string().refine((v) => !Number.isNaN(Date.parse(v)), {
@@ -682,6 +704,60 @@ export interface Billing {
 export interface BillingWithCustomer extends Billing {
 	customerName: string | null;
 }
+
+// ─── Company Settings (singleton) ──────────────────────────────────────────────
+
+export const FOCUS_NFE_ENVIRONMENTS = ["sandbox", "production"] as const;
+export type FocusNfeEnvironment = (typeof FOCUS_NFE_ENVIRONMENTS)[number];
+
+export interface CompanySettings {
+	id: string;
+	cnpj: string;
+	companyName: string;
+	tradeName: string | null;
+	municipalRegistration: string | null;
+	stateRegistration: string | null;
+	address: string | null;
+	number: string | null;
+	complement: string | null;
+	district: string | null;
+	city: string | null;
+	state: string | null;
+	zipCode: string | null;
+	cityCode: string | null;
+	serviceItemCode: string | null;
+	municipalServiceCode: string | null;
+	issAliquot: string | null;
+	defaultDiscrimination: string | null;
+	focusNfeToken: string | null;
+	focusNfeEnvironment: FocusNfeEnvironment;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export const upsertCompanySettingsSchema = z.object({
+	cnpj: z.string().min(11, "CNPJ is required").max(20),
+	companyName: z.string().min(2, "Company name is required").max(255),
+	tradeName: z.string().max(255).optional().nullable(),
+	municipalRegistration: z.string().max(50).optional().nullable(),
+	stateRegistration: z.string().max(50).optional().nullable(),
+	address: z.string().max(255).optional().nullable(),
+	number: z.string().max(20).optional().nullable(),
+	complement: z.string().max(120).optional().nullable(),
+	district: z.string().max(120).optional().nullable(),
+	city: z.string().max(120).optional().nullable(),
+	state: z.string().max(2).optional().nullable(),
+	zipCode: z.string().max(20).optional().nullable(),
+	cityCode: z.string().max(10).optional().nullable(),
+	serviceItemCode: z.string().max(20).optional().nullable(),
+	municipalServiceCode: z.string().max(20).optional().nullable(),
+	issAliquot: z.coerce.number().min(0).max(100).optional().nullable(),
+	defaultDiscrimination: z.string().max(2000).optional().nullable(),
+	focusNfeToken: z.string().max(255).optional().nullable(),
+	focusNfeEnvironment: z.enum(FOCUS_NFE_ENVIRONMENTS).default("sandbox"),
+});
+
+export type UpsertCompanySettingsInput = z.infer<typeof upsertCompanySettingsSchema>;
 
 // ─── Administrative Permission Helper ──────────────────────────────────────────
 

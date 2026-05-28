@@ -1,9 +1,10 @@
-import { syncInvoicesSchema, updateInvoiceSchema } from "@kyra/shared";
+import { issueNfseSchema, syncInvoicesSchema, updateInvoiceSchema } from "@kyra/shared";
 import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { type AppEnv, requireRole } from "../lib/auth";
 import { db } from "../db";
-import { customers, invoices } from "../db/schema";
+import { companySettings, customers, invoices } from "../db/schema";
+import { focusNfe, FocusNfeError } from "../lib/focus-nfe";
 import { parseBody } from "../lib/validate";
 import { stripe } from "../lib/stripe";
 
@@ -62,6 +63,155 @@ invoicesRoutes.patch("/:id", async (c) => {
 		.returning();
 
 	return c.json(updated);
+});
+
+// POST /:id/issue-nfse — Issue NFS-e via Focus NFe
+invoicesRoutes.post("/:id/issue-nfse", async (c) => {
+	const id = c.req.param("id");
+	const parsed = await parseBody(c, issueNfseSchema);
+	if ("error" in parsed) return parsed.error;
+
+	const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+	if (!invoice) return c.json({ error: "Invoice not found" }, 404);
+
+	if (invoice.nfseStatus === "processing" || invoice.nfseStatus === "authorized") {
+		return c.json(
+			{ error: "Invoice already has an NFS-e in progress or authorized" },
+			409,
+		);
+	}
+
+	const [customer] = await db.select().from(customers).where(eq(customers.id, invoice.customerId));
+	if (!customer) return c.json({ error: "Customer not found" }, 404);
+
+	const [settings] = await db.select().from(companySettings).limit(1);
+	if (!settings || !settings.focusNfeToken) {
+		return c.json(
+			{ error: "Company settings not configured. Set Focus NFe token first." },
+			400,
+		);
+	}
+	if (!invoice.amount) {
+		return c.json({ error: "Invoice has no amount set" }, 400);
+	}
+
+	const reference = invoice.nfseReference ?? `inv_${invoice.id}`;
+	const discrimination =
+		parsed.data.discrimination ||
+		invoice.description ||
+		settings.defaultDiscrimination ||
+		`Serviços prestados — fatura ${invoice.id.slice(0, 8)}`;
+
+	// Mark as processing + persist reference for idempotency
+	await db
+		.update(invoices)
+		.set({
+			nfseStatus: "processing",
+			nfseReference: reference,
+			nfseError: null,
+			updatedAt: new Date(),
+		})
+		.where(eq(invoices.id, id));
+
+	try {
+		const response = await focusNfe.issue(
+			{ token: settings.focusNfeToken, environment: settings.focusNfeEnvironment },
+			{
+				reference,
+				prestadorCnpj: settings.cnpj,
+				prestadorInscricaoMunicipal: settings.municipalRegistration,
+				tomadorCnpjCpf: customer.cnpj,
+				tomadorRazaoSocial: customer.companyName,
+				tomadorEmail: customer.invoiceEmails?.[0] ?? null,
+				tomadorEndereco: {
+					logradouro: customer.address,
+					numero: customer.number,
+					bairro: customer.district,
+					codigoMunicipio: settings.cityCode,
+					uf: customer.state,
+					cep: customer.zipCode,
+				},
+				servico: {
+					aliquota: settings.issAliquot ? Number.parseFloat(settings.issAliquot) : 0,
+					discriminacao: discrimination,
+					itemListaServico: settings.serviceItemCode,
+					codigoTributarioMunicipio: settings.municipalServiceCode,
+					valorServicos: Number.parseFloat(invoice.amount),
+				},
+			},
+		);
+
+		const mapped = focusNfe.mapStatus(response.status);
+		const [updated] = await db
+			.update(invoices)
+			.set({
+				nfseStatus: mapped,
+				nfseNumber: response.numero ?? null,
+				nfsePdfUrl: response.url_danfse ?? null,
+				nfseXmlUrl: response.caminho_xml_nota_fiscal ?? null,
+				nfseIssuedAt: mapped === "authorized" ? new Date() : null,
+				nfseError: mapped === "error" ? response.mensagem_sefaz ?? null : null,
+				updatedAt: new Date(),
+			})
+			.where(eq(invoices.id, id))
+			.returning();
+
+		return c.json(updated);
+	} catch (err) {
+		const message =
+			err instanceof FocusNfeError ? err.message : (err as Error).message || "Unknown error";
+		await db
+			.update(invoices)
+			.set({
+				nfseStatus: "error",
+				nfseError: message,
+				updatedAt: new Date(),
+			})
+			.where(eq(invoices.id, id));
+		return c.json({ error: message }, 502);
+	}
+});
+
+// POST /:id/cancel-nfse — Cancel an issued NFS-e
+invoicesRoutes.post("/:id/cancel-nfse", async (c) => {
+	const id = c.req.param("id");
+	const body = (await c.req.json().catch(() => ({}))) as { justification?: string };
+	const justification = body.justification?.trim();
+	if (!justification || justification.length < 15) {
+		return c.json(
+			{ error: "Justification with at least 15 characters is required" },
+			400,
+		);
+	}
+
+	const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+	if (!invoice) return c.json({ error: "Invoice not found" }, 404);
+	if (invoice.nfseStatus !== "authorized" || !invoice.nfseReference) {
+		return c.json({ error: "Only authorized NFS-e can be cancelled" }, 400);
+	}
+
+	const [settings] = await db.select().from(companySettings).limit(1);
+	if (!settings || !settings.focusNfeToken) {
+		return c.json({ error: "Company settings not configured" }, 400);
+	}
+
+	try {
+		await focusNfe.cancel(
+			{ token: settings.focusNfeToken, environment: settings.focusNfeEnvironment },
+			invoice.nfseReference,
+			justification,
+		);
+		const [updated] = await db
+			.update(invoices)
+			.set({ nfseStatus: "cancelled", updatedAt: new Date() })
+			.where(eq(invoices.id, id))
+			.returning();
+		return c.json(updated);
+	} catch (err) {
+		const message =
+			err instanceof FocusNfeError ? err.message : (err as Error).message || "Unknown error";
+		return c.json({ error: message }, 502);
+	}
 });
 
 // POST /sync — Sync invoices from Stripe for a date range

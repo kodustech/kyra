@@ -9,6 +9,7 @@ import { NewCustomerPage } from "@/pages/customers/new";
 import { Dashboard } from "@/pages/dashboard";
 import { DatabaseDetail } from "@/pages/database-detail";
 import { InvoicesPage } from "@/pages/invoices";
+import { CompanySettingsPage } from "@/pages/settings/company";
 import { LoginPage } from "@/pages/login";
 import { NotFound } from "@/pages/not-found";
 import { PageDetail } from "@/pages/page-detail";
@@ -59,6 +60,7 @@ export function App() {
 								<Route path="/administrative/customers/:id/edit" element={<EditCustomerPage />} />
 								<Route path="/administrative/invoices" element={<InvoicesPage />} />
 								<Route path="/administrative/billings" element={<BillingsPage />} />
+								<Route path="/administrative/settings" element={<CompanySettingsPage />} />
 								<Route path="*" element={<NotFound />} />
 							</Route>
 						</Route>

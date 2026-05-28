@@ -14,7 +14,7 @@ COPY . .
 # ─── API ─────────────────────────────────────────────────────────────────────
 FROM base AS api
 WORKDIR /app
-EXPOSE 3000
+EXPOSE 3100
 CMD ["bun", "run", "apps/api/src/index.ts"]
 
 # ─── Web: build static files ────────────────────────────────────────────────
